@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidekick · Live meeting agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">S</span>
+      <div>
+        <h1>Sidekick</h1>
+        <p class="sub" id="meeting-title">Live meeting agent</p>
+      </div>
+    </div>
+    <div class="status">
+      <span id="status-pill" class="pill live">● Live</span>
+      <span id="agent-pill" class="pill">agent</span>
+      <span id="clock" class="pill muted"></span>
+    </div>
+    <div class="controls">
+      <button id="btn-demo" class="primary">▶ Play demo meeting</button>
+      <button id="btn-end">End call &amp; send summary</button>
+      <button id="btn-new" class="ghost">New meeting</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card call">
+      <div class="card-head"><h2>Call</h2><span class="hint">Google Meet · Sidekick joined as a participant</span></div>
+      <div id="tiles" class="tiles"></div>
+      <div id="transcript" class="transcript" aria-live="polite"></div>
+      <form id="say" class="say">
+        <select id="speaker" aria-label="Speaker"></select>
+        <input id="text" autocomplete="off" placeholder="Type what someone says, e.g. “Let's meet Thursday afternoon”">
+        <button type="button" id="btn-mic" title="Speak (Chrome)">🎤</button>
+        <button type="submit" class="primary">Say</button>
+      </form>
+    </section>
+
+    <section class="card feed-card">
+      <div class="card-head"><h2>Live activity feed</h2><span class="hint">Every action, as it happens</span></div>
+      <ol id="feed" class="feed"></ol>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Calendar</h2><span class="hint" id="events-count"></span></div>
+      <ul id="events" class="list"></ul>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Tasks</h2><span class="hint" id="tasks-count"></span></div>
+      <ul id="tasks" class="list"></ul>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Decisions</h2></div>
+      <ul id="decisions" class="list"></ul>
+      <div class="card-head sub-head"><h2>Meeting chat</h2></div>
+      <ul id="chat" class="list chat"></ul>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Outbox</h2><span class="hint">Emails sent</span></div>
+      <ul id="outbox" class="list"></ul>
+    </section>
+  </main>
+
+  <dialog id="summary-dialog">
+    <h2>Meeting summary sent</h2>
+    <pre id="summary-text"></pre>
+    <form method="dialog"><button class="primary">Close</button></form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

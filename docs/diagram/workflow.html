@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sidekick workflow</title>
+<style>
+  body { margin:0; background:#ffffff; font: 15px/1.35 "Segoe UI", system-ui, sans-serif; color:#16181d; }
+  .wrap { width:1600px; padding:36px 44px; box-sizing:border-box; position:relative; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  p.sub { margin:0 0 26px; color:#646b78; font-size:16px; }
+  .row { display:flex; align-items:stretch; gap:0; }
+  .box { border-radius:14px; padding:14px 16px; border:2px solid #d9dce3; background:#f7f8fa; width:220px; box-sizing:border-box; }
+  .box h3 { margin:0 0 6px; font-size:16px; }
+  .box ul { margin:0; padding-left:18px; color:#3d434e; font-size:13.5px; }
+  .box .tag { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#646b78; margin-bottom:4px; }
+  .arrow { width:46px; display:flex; align-items:center; justify-content:center; color:#9aa1ad; font-size:28px; }
+  .agent { background:#eef0ff; border-color:#4f46e5; width:330px; }
+  .agent h3 { color:#4f46e5; }
+  .loop { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .loop span { background:#fff; border:1.5px solid #4f46e5; color:#4f46e5; border-radius:999px; padding:3px 10px; font-size:13px; font-weight:600; }
+  .tools { background:#e6f6ef; border-color:#0f8a5f; }
+  .tools h3 { color:#0f8a5f; }
+  .gate { background:#fff4e5; border-color:#b45309; }
+  .gate h3 { color:#b45309; }
+  .out { background:#f7f8fa; }
+  .lower { display:flex; gap:22px; margin-top:34px; }
+  .lower .box { width:auto; flex:1; }
+  .human { background:#fff4e5; border-color:#b45309; }
+  .legend { margin-top:22px; color:#646b78; font-size:13px; }
+  .ret { margin-top:14px; color:#4f46e5; font-weight:600; font-size:14px; }
+</style></head>
+<body><div class="wrap">
+  <h1>Sidekick: how one sentence becomes an action</h1>
+  <p class="sub">“Let's meet Thursday” → calendars checked → invite sent, before the next person speaks.</p>
+
+  <div class="row">
+    <div class="box"><div class="tag">1 · Join</div><h3>Meeting bot</h3>
+      <ul><li>Joins Google Meet as “Sidekick”</li><li>Announces itself in chat</li><li>Recall.ai bot, or the browser mic in the prototype</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box"><div class="tag">2 · Listen</div><h3>Speech to text</h3>
+      <ul><li>Streaming transcript</li><li>Speaker labels mapped to participants</li><li>One finished utterance at a time</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box gate"><div class="tag">3 · Safety check</div><h3>Pause / resume</h3>
+      <ul><li>“Sidekick, stop recording” handled by fixed rules, never the LLM</li><li>While paused nothing is stored or acted on</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box agent"><div class="tag">4 · Decide</div><h3>Agent (Claude, tool calling)</h3>
+      <ul><li>Reads rolling transcript, participants, time, actions so far</li><li>Decides: act now, or do nothing</li></ul>
+      <div class="loop"><span>think</span><span>call tool</span><span>read result</span><span>repeat</span></div>
+      <div class="ret">Offline fallback: rule-based planner, same tools</div></div>
+    <div class="arrow">→</div>
+    <div class="box tools"><div class="tag">5 · Act</div><h3>Tools</h3>
+      <ul><li>check_availability</li><li>schedule_meeting + invite</li><li>create_task</li><li>log_decision</li><li>send_email</li><li>post_to_meeting_chat</li></ul></div>
+  </div>
+
+  <div class="lower">
+    <div class="box gate"><div class="tag">Policy layer (in code, not the prompt)</div><h3>Guardrails on every tool call</h3>
+      <ul><li>Anyone outside the team → held for approval</li><li>Calendar conflict → no booking, alternatives posted</li><li>Same action twice → refused as duplicate</li><li>Agent can't set the approval flag itself</li></ul></div>
+    <div class="box human"><div class="tag">Human in the loop</div><h3>Host approves in the live feed</h3>
+      <ul><li>Approve &amp; send, or Reject</li><li>Pause / resume by voice</li><li>Every action shows the words that triggered it</li></ul></div>
+    <div class="box out"><div class="tag">6 · Show</div><h3>Live activity feed</h3>
+      <ul><li>Each action with time and latency</li><li>Calendar, tasks, decisions, outbox</li><li>Meeting chat messages</li></ul></div>
+    <div class="box out"><div class="tag">7 · After the call</div><h3>Summary</h3>
+      <ul><li>Decisions, action items with owners and due dates</li><li>Meetings booked, open questions</li><li>Emailed to the team</li></ul></div>
+  </div>
+  <div class="legend">Single agent with tools · purple = LLM reasoning · green = actions · amber = safety and human control</div>
+</div></body></html>

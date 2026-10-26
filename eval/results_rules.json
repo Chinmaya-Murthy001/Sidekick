@@ -1,0 +1,177 @@
+{
+  "agent": "rules",
+  "passed": 13,
+  "total": 16,
+  "latency_ms": {
+    "median": 0,
+    "max": 2
+  },
+  "cases": [
+    {
+      "id": "T1",
+      "category": "Scheduling",
+      "name": "Day-only proposal books first common free slot",
+      "said": "Alex: Let's meet Thursday to finalize the launch checklist.",
+      "pass": true,
+      "actual": "booked Thu 09:30 (4 people)",
+      "problems": [],
+      "ms": 2.6
+    },
+    {
+      "id": "T2",
+      "category": "Scheduling",
+      "name": "Exact time that is free gets booked",
+      "said": "Priya: Can we meet tomorrow at 11am to review the onboarding flow?",
+      "pass": true,
+      "actual": "booked Tue 11:00 (4 people)",
+      "problems": [],
+      "ms": 0.3
+    },
+    {
+      "id": "T3",
+      "category": "Scheduling",
+      "name": "Exact time with a conflict is not booked; alternatives offered",
+      "said": "Alex: Can we also sync on Tuesday at 2pm about the budget?",
+      "pass": true,
+      "actual": "posted alternatives in chat",
+      "problems": [],
+      "ms": 0.2
+    },
+    {
+      "id": "T4",
+      "category": "Scheduling",
+      "name": "Part of day respected (Thursday afternoon)",
+      "said": "Marcus: Let's catch up Thursday afternoon on the vendor contract.",
+      "pass": true,
+      "actual": "booked Thu 13:00 (4 people)",
+      "problems": [],
+      "ms": 0.3
+    },
+    {
+      "id": "T5",
+      "category": "Human-in-the-loop",
+      "name": "Invite including an external guest waits for approval",
+      "said": "Sam: Let's meet with Dana next Tuesday at 10am to walk through the contract.",
+      "pass": true,
+      "actual": "held for approval (schedule_meeting)",
+      "problems": [],
+      "ms": 0.2
+    },
+    {
+      "id": "T6",
+      "category": "Tasks",
+      "name": "Self-commitment with deadline becomes a task",
+      "said": "Priya: I'll send the updated pricing deck to the team by Wednesday.",
+      "pass": true,
+      "actual": "task -> Priya due Wed",
+      "problems": [],
+      "ms": 0.5
+    },
+    {
+      "id": "T7",
+      "category": "Tasks",
+      "name": "Request + acceptance assigns task to the right person",
+      "said": "Marcus: Sam, can you draft the press release by Friday? / Sam: Sure, I'll take that.",
+      "pass": true,
+      "actual": "task -> Sam due Fri",
+      "problems": [],
+      "ms": 0.4
+    },
+    {
+      "id": "T8",
+      "category": "Tasks",
+      "name": "Third-person assignment (\"Marcus will ...\")",
+      "said": "Sam: Marcus will handle the vendor contract renewal before Friday.",
+      "pass": false,
+      "actual": "no action",
+      "problems": [
+        "tasks [] != [('Marcus Lee', '2026-10-30')]"
+      ],
+      "ms": 0.0
+    },
+    {
+      "id": "T9",
+      "category": "Decisions",
+      "name": "Decision is logged",
+      "said": "Marcus: Okay, we decided to go with the annual pricing plan for launch.",
+      "pass": true,
+      "actual": "1 decision logged",
+      "problems": [],
+      "ms": 0.1
+    },
+    {
+      "id": "T10",
+      "category": "Human-in-the-loop",
+      "name": "Voice command email to external contact needs approval",
+      "said": "Sam: Hey Sidekick, email Dana the launch date is November 18th.",
+      "pass": true,
+      "actual": "held for approval (send_email)",
+      "problems": [],
+      "ms": 0.1
+    },
+    {
+      "id": "T11",
+      "category": "Safety",
+      "name": "Pause stops recording until resume",
+      "said": "Priya: Sidekick, stop recording for a minute. / Marcus: Off the record, I'll fire the vendor by Friday. / Priya: Okay Sidekick, resume.",
+      "pass": true,
+      "actual": "paused/resumed",
+      "problems": [],
+      "ms": 0.1
+    },
+    {
+      "id": "T12",
+      "category": "Robustness",
+      "name": "Same proposal repeated is not double-booked",
+      "said": "Alex: Let's meet Thursday to finalize the launch checklist. / Priya: Yes, let's meet Thursday for the launch checklist.",
+      "pass": true,
+      "actual": "booked Thu 09:30 (4 people)",
+      "problems": [],
+      "ms": 0.5
+    },
+    {
+      "id": "T13",
+      "category": "Robustness",
+      "name": "Small talk triggers nothing",
+      "said": "Sam: How was everyone's weekend? / Priya: Good, I went hiking with my family. / Marcus: I will never get used to these early mornings.",
+      "pass": false,
+      "actual": "task -> Marcus (no due date)",
+      "problems": [
+        "tasks [('Marcus Lee', None)] != []"
+      ],
+      "ms": 0.1
+    },
+    {
+      "id": "T14",
+      "category": "Robustness",
+      "name": "Negated proposal (\"let's not meet Friday\")",
+      "said": "Alex: Let's not meet Friday, half the team is out.",
+      "pass": true,
+      "actual": "no action",
+      "problems": [],
+      "ms": 0.0
+    },
+    {
+      "id": "T15",
+      "category": "Scheduling",
+      "name": "Indirect phrasing (\"circle back\")",
+      "said": "Priya: Can we circle back on this Wednesday afternoon?",
+      "pass": false,
+      "actual": "no action",
+      "problems": [
+        "events [] != [('2026-10-28T13:00', 4)]"
+      ],
+      "ms": 0.0
+    },
+    {
+      "id": "T16",
+      "category": "Actions",
+      "name": "Team-only email request is sent immediately",
+      "said": "Alex: Sidekick, email Priya and Marcus the notes about the beta numbers.",
+      "pass": true,
+      "actual": "1 email sent",
+      "problems": [],
+      "ms": 0.1
+    }
+  ]
+}
