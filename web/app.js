@@ -35,7 +35,7 @@ function renderShell() {
     $("meeting-title").textContent = "Live meeting agent";
   } else {
     pill.className = "pill " + (state.ended ? "ended" : state.paused ? "paused" : "live");
-    pill.textContent = state.ended ? "Call ended" : state.paused ? "❚❚ Paused (not recording)" : "● Live";
+    pill.textContent = state.ended ? "Call ended" : state.paused ? "❚❚ Paused (not recording)" : "Live";
     $("meeting-title").textContent = state.title + " · " + state.participants.length + " people";
     $("btn-end").hidden = state.ended;
     $("btn-close").textContent = state.ended ? "New meeting" : "Leave";
@@ -217,9 +217,24 @@ $("call-link-form").addEventListener("submit", async (e) => {
   }
 });
 
+// Animate only things that are new since the last render, not every re-render.
+const seen = { meeting: null, ids: new Set() };
+function isNew(id) {
+  if (seen.meeting !== state.id) { seen.meeting = state.id; seen.ids = new Set(); }
+  if (seen.ids.has(id)) return false;
+  seen.ids.add(id);
+  return true;
+}
+const hue = (name) => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+
 function renderTiles() {
+  const speaking = new Set([...document.querySelectorAll(".tile.speaking")].map((t) => t.dataset.name));
   const people = state.participants.map(
-    (p) => `<div class="tile" data-name="${esc(p.name)}"><div class="avatar">${esc(p.name[0])}</div><div class="name">${esc(p.name)}</div><div class="tag">${p.internal ? "team" : "external"}</div></div>`
+    (p) => `<div class="tile${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}">
+      <span class="bars"><i></i><i></i><i></i></span>
+      <div class="avatar" style="--h:${hue(p.name)}">${esc(initials(p.name))}</div>
+      <div class="name">${esc(p.name)}</div><div class="tag">${p.internal ? "Team" : "External"}</div></div>`
   );
   people.push(`<div class="tile bot"><div class="avatar">S</div><div class="name">Sidekick</div><div class="tag">AI assistant</div></div>`);
   $("tiles").innerHTML = people.join("");
@@ -237,7 +252,7 @@ function renderTranscript() {
   const actedQuotes = new Set((state.feed || []).map((f) => f.data && f.data.quote).filter(Boolean));
   const lines = (state.transcript || []).map((u) => {
     const acted = actedQuotes.has(`${u.speaker}: "${u.text}"`);
-    return `<div class="line${acted ? " acted" : ""}"><span class="t">${hhmm(u.at)}</span><span class="who">${esc(u.speaker)}</span>${esc(u.text)}</div>`;
+    return `<div class="line${acted ? " acted" : ""}${isNew(u.id) ? " enter" : ""}"><span class="t">${hhmm(u.at)}</span><span class="who">${esc(u.speaker)}</span><span class="txt">${esc(u.text)}</span></div>`;
   });
   if (state.paused) lines.push(`<div class="line system">Recording paused. Nothing is transcribed until someone says “Sidekick, resume”.</div>`);
   box.innerHTML = lines.join("") || `<div class="line system">Waiting for someone to speak. Pick who is talking, then use the 🎤 microphone or type what was said.</div>`;
@@ -256,7 +271,7 @@ function renderFeed() {
       : "";
     const link = f.data && f.data.link
       ? ` <a href="${esc(f.data.link)}" target="_blank" rel="noopener">${/calendar\.google/.test(f.data.link) ? "Open in Calendar" : "Open call"}</a>` : "";
-    return `<li class="${esc(f.kind)} ${esc(f.status)}">
+    return `<li class="${esc(f.kind)} ${esc(f.status)}${isNew(f.id) ? " enter" : ""}">
       <div class="title">${esc(f.title)}</div>
       <div class="meta"><span>${hhmm(f.at)}</span>${badge}${lat}</div>
       ${f.detail ? `<div class="detail">${esc(f.detail)}${link}</div>` : ""}
@@ -270,16 +285,16 @@ function renderFeed() {
 function renderLists() {
   const empty = (msg) => `<li class="empty">${msg}</li>`;
   $("events").innerHTML =
-    state.events.map((e) => `<li><div class="main">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</div><div class="small">${dayTime(e.start)}–${hhmm(e.end)} · ${e.attendees.length} invited</div></li>`).join("") ||
+    state.events.map((e) => `<li${isNew(e.id) ? ' class="enter"' : ""}><div class="main">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</div><div class="small">${dayTime(e.start)}–${hhmm(e.end)} · ${e.attendees.length} invited</div></li>`).join("") ||
     empty("No meetings booked yet");
   $("events-count").textContent = state.events.length ? `${state.events.length} booked` : "";
   $("tasks").innerHTML =
-    state.tasks.map((t) => `<li><div class="main">${esc(t.description)}</div><div class="small">${esc(t.owner)}${t.due ? " · due " + esc(t.due) : ""}</div></li>`).join("") ||
+    state.tasks.map((t) => `<li${isNew(t.id) ? ' class="enter"' : ""}><div class="main">${esc(t.description)}</div><div class="small">${esc(t.owner)}${t.due ? " · due " + esc(t.due) : ""}</div></li>`).join("") ||
     empty("No action items yet");
   $("tasks-count").textContent = state.tasks.length ? `${state.tasks.length} open` : "";
   $("decisions").innerHTML = state.decisions.map((d) => `<li>${esc(d)}</li>`).join("") || empty("No decisions yet");
   $("outbox").innerHTML =
-    state.outbox.map((m) => `<li><div class="main">${esc(m.subject)}</div><div class="small">to ${esc(m.to.join(", "))} · ${hhmm(m.sent_at)}${m.delivered ? " · sent" : " · recorded"}</div></li>`).join("") ||
+    state.outbox.map((m) => `<li${isNew(m.id) ? ' class="enter"' : ""}><div class="main">${esc(m.subject)}</div><div class="small">to ${esc(m.to.join(", "))} · ${hhmm(m.sent_at)}${m.delivered ? " · sent" : " · recorded"}</div></li>`).join("") ||
     empty("Nothing yet");
   $("chat").innerHTML = (state.chat || []).map((c) => `<li><b>Sidekick:</b> ${esc(c.text)}</li>`).join("") || empty("Quiet");
 }
