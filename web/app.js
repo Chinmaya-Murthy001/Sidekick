@@ -98,9 +98,12 @@ function renderConnections() {
   const agent = status.agent === "claude"
     ? `<span class="ok">Claude</span>`
     : `<span class="off">Offline planner. Set ANTHROPIC_API_KEY in .env for Claude</span>`;
-  const bot = status.recall.enabled && status.recall.webhook
-    ? `<span class="ok">Recall.ai ready</span>`
-    : `<span class="off">Optional: RECALL_API_KEY and PUBLIC_URL let Sidekick join a Meet link itself</span>`;
+  const bot = status.recall.ready
+    ? `<span class="ok">Recall.ai ready: Sidekick joins from a link</span>`
+    : `<span class="off">Optional: RECALL_API_KEY and PUBLIC_URL let Sidekick join from a link by itself</span>`;
+  $("link-hint").textContent = status.recall.ready
+    ? "Sidekick will join the call itself. The host may need to admit it."
+    : "Sidekick can’t join by itself yet. You’ll get a button to open the call; Sidekick listens through this page’s 🎤.";
   $("connections").innerHTML = `
     <li class="conn"><div><div class="main">Google Calendar &amp; Gmail</div><div class="small">Real free/busy, real invites and emails</div></div><div>${google}</div></li>
     <li class="conn"><div><div class="main">AI agent</div><div class="small">Decides what to do as people talk</div></div><div>${agent}</div></li>
@@ -150,7 +153,8 @@ $("start-form").addEventListener("submit", async (e) => {
   }
   rememberSetup();
   try {
-    await api("/api/meeting/start", { title: $("m-title").value.trim(), participants, contacts });
+    await api("/api/meeting/start", { title: $("m-title").value.trim(), participants, contacts, meeting_url: $("m-link").value.trim() });
+    $("m-link").value = "";
   } catch (ex) {
     err.textContent = ex.message;
     err.hidden = false;
@@ -168,12 +172,50 @@ function renderLive() {
   banner.hidden = state.delivers;
   banner.textContent = "Local mode: calendar invites and emails are recorded on this page but not sent. Connect Google on the start screen to send them for real.";
   $("outbox-hint").textContent = state.delivers ? "Sent from your Google account" : "Recorded, not sent";
+  renderCallBar();
   renderTiles();
   renderSpeakers();
   renderTranscript();
   renderFeed();
   renderLists();
 }
+
+const platformOf = (url) => (/meet\.google\.com/i.test(url) ? "Google Meet" : /zoom\.us/i.test(url) ? "Zoom" : /teams\.(microsoft|live)\.com/i.test(url) ? "Microsoft Teams" : "Call");
+const BOT_TEXT = {
+  joining: "Sidekick is joining. Admit “Sidekick (AI assistant)” if the call asks.",
+  in_call: "Sidekick is in the call and listening.",
+  failed: "Sidekick couldn’t join. Keep this page’s 🎤 on instead.",
+  left: "Sidekick has left the call.",
+  none: "Sidekick listens through this page: pick who’s speaking and turn on 🎤.",
+};
+
+function renderCallBar() {
+  const has = !!state.link;
+  $("call-linked").hidden = !has;
+  // Allow a new link only before the bot is in a call.
+  $("call-link-form").hidden = state.ended || ["joining", "in_call"].includes(state.bot);
+  $("call-link").placeholder = has ? "Use a different link" : "Got a meeting link? Paste it here (Meet, Zoom or Teams)";
+  if (has) {
+    $("call-platform").textContent = platformOf(state.link);
+    $("call-open").href = state.link;
+    $("call-bot").textContent = BOT_TEXT[state.bot] || "";
+  }
+}
+
+$("call-link-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = $("call-link-error");
+  err.hidden = true;
+  const url = $("call-link").value.trim();
+  if (!url) return;
+  try {
+    await api("/api/meeting/link", { meeting_url: url });
+    $("call-link").value = "";
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.hidden = false;
+  }
+});
 
 function renderTiles() {
   const people = state.participants.map(
@@ -212,7 +254,8 @@ function renderFeed() {
     const buttons = pending && !state.ended
       ? `<div class="actions"><button class="primary" data-approve="${esc(f.data.approval_id)}">Approve &amp; send</button><button data-reject="${esc(f.data.approval_id)}">Reject</button></div>`
       : "";
-    const link = f.data && f.data.link ? ` <a href="${esc(f.data.link)}" target="_blank" rel="noopener">Open in Calendar</a>` : "";
+    const link = f.data && f.data.link
+      ? ` <a href="${esc(f.data.link)}" target="_blank" rel="noopener">${/calendar\.google/.test(f.data.link) ? "Open in Calendar" : "Open call"}</a>` : "";
     return `<li class="${esc(f.kind)} ${esc(f.status)}">
       <div class="title">${esc(f.title)}</div>
       <div class="meta"><span>${hhmm(f.at)}</span>${badge}${lat}</div>

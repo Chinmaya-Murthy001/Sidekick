@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidekick · Live meeting agent</title>
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -33,6 +33,10 @@
       <form id="start-form">
         <label class="field">Meeting name
           <input id="m-title" required maxlength="120" placeholder="e.g. Weekly product sync">
+        </label>
+        <label class="field">Meeting link <span class="hint">(optional: Google Meet, Zoom or Teams)</span>
+          <input id="m-link" type="url" placeholder="https://meet.google.com/abc-defg-hij">
+          <span class="hint" id="link-hint"></span>
         </label>
         <div class="people-head">
           <span>People on the call</span>
@@ -71,6 +75,18 @@
   <!-- Live meeting -->
   <main id="live" class="grid" hidden>
     <p id="mode-banner" class="banner" hidden></p>
+    <div id="call-bar" class="call-bar">
+      <div id="call-linked" hidden>
+        <span id="call-platform" class="main"></span>
+        <a id="call-open" class="call-open" target="_blank" rel="noopener">Open call ↗</a>
+        <span id="call-bot" class="hint"></span>
+      </div>
+      <form id="call-link-form" class="call-link-form">
+        <input id="call-link" type="url" placeholder="Got a meeting link? Paste it here (Meet, Zoom or Teams)" aria-label="Meeting link">
+        <button type="submit" class="small">Use this link</button>
+        <span id="call-link-error" class="error" hidden></span>
+      </form>
+    </div>
     <section class="card call">
       <div class="card-head"><h2>Call</h2><span class="hint">Sidekick joined as a participant</span></div>
       <div id="tiles" class="tiles"></div>
@@ -114,6 +130,6 @@
     <form method="dialog"><button class="primary">Close</button></form>
   </dialog>
 
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

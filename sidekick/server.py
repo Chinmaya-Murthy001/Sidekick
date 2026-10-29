@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import secrets
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +30,8 @@ from .workspace import Participant, Workspace  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+WEBHOOK_TOKEN = os.getenv("RECALL_WEBHOOK_TOKEN") or secrets.token_urlsafe(24)
 
 store = Store(google_auth.DATA_DIR / "sidekick.db")
 _state: dict = {"session": None, "listeners": set(), "loop": None}
@@ -91,6 +94,7 @@ class StartIn(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     participants: list[Person] = Field(min_length=1, max_length=50)
     contacts: list[Person] = []
+    meeting_url: str = ""
     agent: str | None = None
 
 
@@ -103,8 +107,37 @@ class ApprovalIn(BaseModel):
     approve: bool
 
 
-class JoinIn(BaseModel):
+class LinkIn(BaseModel):
     meeting_url: str
+
+
+def check_link(url: str) -> str:
+    url = url.strip()
+    if not recall.platform(url):
+        raise HTTPException(422, "That doesn't look like a meeting link. Paste a Google Meet, Zoom or Teams link "
+                                 "(for example https://meet.google.com/abc-defg-hij).")
+    return url
+
+
+async def attach_link(session: SidekickSession, url: str) -> None:
+    """Remember the call's link and, if Recall is set up, send the bot in."""
+    m = session.meeting
+    m.link = url
+    where = recall.platform(url)
+    if not recall.ready():
+        m.log("info", f"{where} link saved",
+              "Sidekick can't join by itself yet (needs RECALL_API_KEY and PUBLIC_URL). "
+              "Open the call from the link above and keep this page's 🎤 on.", link=url)
+        return
+    m.bot = "joining"
+    m.log("info", f"Sending Sidekick into the {where} call", "The host may need to admit “Sidekick (AI assistant)”.", link=url)
+    try:
+        bot = await asyncio.to_thread(recall.create_bot, url, f"{recall.webhook_url()}?token={WEBHOOK_TOKEN}")
+        m.bot_id = bot.get("id", "")
+    except Exception as e:
+        m.bot = "failed"
+        m.log("error", "Sidekick could not join the call", str(e), status="failed")
+    m.publish({"type": "state", "state": m.state_dict(include_transcript=False)})
 
 
 # --- lifecycle ----------------------------------------------------------
@@ -128,7 +161,7 @@ async def status() -> dict:
         "meeting_agent": s.agent.name if s else None,
         "agent": agent.name,
         "google": {"configured": google_auth.configured(), "connected": bool(loaded), "email": loaded[1] if loaded else None},
-        "recall": {"enabled": recall.enabled(), "webhook": bool(os.getenv("PUBLIC_URL"))},
+        "recall": {"enabled": recall.enabled(), "ready": recall.ready()},
     }
 
 
@@ -141,6 +174,7 @@ async def meeting_start(body: StartIn) -> dict:
     bad = [p.email for p in people if not EMAIL_RE.match(p.email.strip())]
     if bad:
         raise HTTPException(422, f"Not a valid email: {', '.join(bad)}")
+    link = check_link(body.meeting_url) if body.meeting_url.strip() else ""
     internal = {p.email.strip().lower() for p in people if p.team}
     workspace = google_workspace(internal) or Workspace(internal_emails=internal)
     meeting = Meeting(
@@ -150,7 +184,9 @@ async def meeting_start(body: StartIn) -> dict:
         contacts=[Participant(p.name.strip(), p.email.strip().lower()) for p in body.contacts],
     )
     session = install(meeting, body.agent)
-    return {"ok": True, "id": meeting.id, "agent": session.agent.name, "provider": workspace.provider}
+    if link:
+        await attach_link(session, link)
+    return {"ok": True, "id": meeting.id, "agent": session.agent.name, "provider": workspace.provider, "bot": meeting.bot}
 
 
 @app.post("/api/demo")
@@ -178,9 +214,34 @@ async def approval(approval_id: str, body: ApprovalIn) -> dict:
     return result
 
 
+async def finish(s: SidekickSession) -> dict:
+    """End the meeting and take the bot out of the call."""
+    summary = await asyncio.to_thread(s.end)
+    m = s.meeting
+    if m.bot_id and m.bot in {"joining", "in_call"}:
+        try:
+            await asyncio.to_thread(recall.leave, m.bot_id)
+            m.bot = "left"
+        except Exception as e:
+            m.log("warning", "Couldn't take the bot out of the call", str(e))
+    return summary
+
+
 @app.post("/api/end")
 async def end() -> dict:
-    return await asyncio.to_thread(current().end)
+    return await finish(current())
+
+
+@app.post("/api/meeting/link")
+async def meeting_link(body: LinkIn) -> dict:
+    """Give the running meeting its call link (and send the bot in, if set up)."""
+    s = current()
+    if s.meeting.ended:
+        raise HTTPException(409, "This meeting has ended.")
+    if s.meeting.bot in {"joining", "in_call"}:
+        raise HTTPException(409, "Sidekick is already in a call for this meeting.")
+    await attach_link(s, check_link(body.meeting_url))
+    return {"ok": True, "bot": s.meeting.bot}
 
 
 @app.post("/api/close")
@@ -188,7 +249,7 @@ async def close() -> dict:
     """Leave the finished meeting and go back to setup."""
     s = _state["session"]
     if s and not s.meeting.ended:
-        await asyncio.to_thread(s.end)
+        await finish(s)
     _state["session"] = None
     broadcast({"type": "reset", "state": None})
     return {"ok": True}
@@ -233,21 +294,20 @@ async def google_disconnect() -> dict:
     return {"ok": True}
 
 
-# --- real meetings via Recall.ai ---------------------------------------
-@app.post("/api/bot/join")
-async def bot_join(body: JoinIn) -> dict:
-    public = os.getenv("PUBLIC_URL", "").rstrip("/")
-    if not recall.enabled() or not public:
-        raise HTTPException(400, "Set RECALL_API_KEY and PUBLIC_URL to send a bot into a real meeting.")
-    current()
-    return await asyncio.to_thread(recall.create_bot, body.meeting_url, f"{public}/webhooks/recall")
-
-
+# --- real calls via Recall.ai ------------------------------------------
 @app.post("/webhooks/recall")
 async def recall_webhook(request: Request) -> dict:
+    # Only Recall knows this token (it is in the URL we gave it), so nobody
+    # else can inject speech into the meeting through the public URL.
+    if not secrets.compare_digest(request.query_params.get("token", ""), WEBHOOK_TOKEN):
+        raise HTTPException(403, "Bad token")
     parsed = recall.parse_transcript_event(await request.json())
-    if parsed and _state["session"]:
-        await asyncio.to_thread(_state["session"].hear, *parsed)
+    s = _state["session"]
+    if parsed and s and not s.meeting.ended:
+        if s.meeting.bot == "joining":
+            s.meeting.bot = "in_call"
+            s.meeting.log("info", "Sidekick is in the call and listening")
+        await asyncio.to_thread(s.hear, *parsed)
     return {"ok": True}
 
 

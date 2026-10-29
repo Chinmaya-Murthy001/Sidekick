@@ -164,6 +164,13 @@ button.link:hover { color: var(--ink); }
 .conn .off { color: var(--muted); }
 .demo-link { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
 .banner { grid-column: 1 / -1; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+.call-bar { grid-column: 1 / -1; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.call-bar #call-linked { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.call-bar #call-linked[hidden] { display: none !important; }
+.call-open { background: var(--accent); color: #fff; border-radius: 8px; padding: 5px 12px; text-decoration: none; font-weight: 600; }
+.call-link-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.call-link-form input { flex: 1; min-width: 220px; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 10px; }
+.field .hint { font-weight: 400; }
 .history-item { cursor: pointer; }
 .history-item:hover .main { color: var(--accent); }
 

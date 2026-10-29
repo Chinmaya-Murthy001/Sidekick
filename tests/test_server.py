@@ -53,8 +53,8 @@ def test_full_meeting_is_archived_and_searchable():
         assert summary["tasks"][0]["description"].startswith("Write the launch FAQ")
         # A second meeting can't start over a running one, but can after it ended.
         assert c.post("/api/close").json()["ok"]
-        listed = c.get("/api/meetings").json()
-        assert listed[0]["id"] == mid and listed[0]["ended"] and listed[0]["tasks"] == 1
+        listed = {m["id"]: m for m in c.get("/api/meetings").json()}
+        assert listed[mid]["ended"] and listed[mid]["tasks"] == 1
         assert [m["id"] for m in c.get("/api/meetings?q=launch faq").json()] == [mid]
         assert c.get("/api/meetings?q=zebra").json() == []
         assert c.get(f"/api/meetings/{mid}").json()["summary"]["meeting"] == "Roadmap review"

@@ -52,6 +52,7 @@ python -m sidekick.server
 Open http://localhost:8000.
 
 1. **Start a meeting.** Give it a name, add the people on the call (name and email), and tick **team** for your teammates. Messages to anyone not ticked always wait for your approval.
+   - **Got a meeting link?** Paste the Google Meet, Zoom or Teams link into **Meeting link**, or into the bar at the top of a running meeting. With Recall.ai set up (`RECALL_API_KEY` and `PUBLIC_URL`), Sidekick's bot joins the call by itself, transcribes everyone with their names, and leaves when you end the meeting. Without it, you get an **Open call** button, and Sidekick listens through this page's 🎤 while you're in the call.
 2. **During the call**, pick who is speaking and click 🎤 for live transcription in Chrome or Edge, or type what was said. Sidekick books meetings, records tasks and decisions, and takes voice commands ("Hey Sidekick, email Ben the notes").
 3. **Approve or reject** anything held in the feed. Click **End call & send summary** when you're done.
 4. Past meetings appear on the start screen, with search across transcripts, tasks and decisions.

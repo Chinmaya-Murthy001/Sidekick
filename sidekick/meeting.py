@@ -60,6 +60,9 @@ class Meeting:
     ):
         self.id = uuid.uuid4().hex[:12]
         self.started_at: datetime | None = None  # set when Sidekick joins
+        self.link = ""        # the call's Meet/Zoom/Teams link, if given
+        self.bot = "none"     # none | joining | in_call | failed | left
+        self.bot_id = ""
         self.title = title
         self.participants = participants
         # People who are not on the call but can be emailed or invited.
@@ -156,6 +159,8 @@ class Meeting:
             "started_at": self.started_at.isoformat(timespec="minutes") if self.started_at else None,
             "provider": ws.provider,
             "delivers": ws.delivers,
+            "link": self.link,
+            "bot": self.bot,
             "paused": self.paused,
             "ended": self.ended,
             "now": self.now().isoformat(timespec="minutes"),
