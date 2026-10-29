@@ -28,22 +28,30 @@ function renderShell() {
   $("setup").hidden = live;
   $("live").hidden = !live;
   $("live-controls").hidden = !live;
+  document.body.classList.toggle("is-live", live);
   const pill = $("status-pill");
   if (!live) {
-    pill.className = "pill ended";
+    pill.className = "seg-item on";
     pill.textContent = "Not in a meeting";
     $("meeting-title").textContent = "Live meeting agent";
   } else {
-    pill.className = "pill " + (state.ended ? "ended" : state.paused ? "paused" : "live");
-    pill.textContent = state.ended ? "Call ended" : state.paused ? "❚❚ Paused (not recording)" : "Live";
-    $("meeting-title").textContent = state.title + " · " + state.participants.length + " people";
+    pill.className = "seg-item on " + (state.ended ? "" : state.paused ? "paused" : "live");
+    pill.textContent = state.ended ? "Call ended" : state.paused ? "Paused · not recording" : "Live";
+    $("meeting-title").textContent = state.participants.length + " people · " + (state.delivers ? "Google" : "local mode");
     $("btn-end").hidden = state.ended;
-    $("btn-close").textContent = state.ended ? "New meeting" : "Leave";
+    const close = $("btn-close");
+    if (state.ended) {
+      close.className = "cream";
+      close.textContent = "New meeting";
+    } else if (close.className !== "circle") {
+      close.className = "circle";
+      close.innerHTML = '<svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>';
+    }
   }
   if (status) {
     const agent = (live && status.meeting_agent) || status.agent;
-    $("agent-pill").textContent = agent === "claude" ? "Agent: Claude" : "Agent: offline planner";
-    $("google-pill").textContent = status.google.connected ? "Google: " + (status.google.email || "connected") : "Local mode";
+    $("agent-pill").textContent = agent === "claude" ? "Claude agent" : "Offline agent";
+    $("google-pill").textContent = status.google.connected ? (status.google.email || "Google connected") : "Local mode";
   }
 }
 
@@ -170,8 +178,9 @@ function renderLive() {
   if (!state) return;
   const banner = $("mode-banner");
   banner.hidden = state.delivers;
-  banner.textContent = "Local mode: calendar invites and emails are recorded on this page but not sent. Connect Google on the start screen to send them for real.";
-  $("outbox-hint").textContent = state.delivers ? "Sent from your Google account" : "Recorded, not sent";
+  banner.textContent = "Local mode · invites and emails are recorded here, not sent. Connect Google on the start screen to send them.";
+  $("outbox-hint").textContent = state.delivers ? "Sent via Google" : "Recorded, not sent";
+  renderHero();
   renderCallBar();
   renderTiles();
   renderSpeakers();
@@ -189,17 +198,51 @@ const BOT_TEXT = {
   none: "Sidekick listens through this page: pick who’s speaking and turn on 🎤.",
 };
 
+// Big numbers and the minutes ring at the top of the live screen.
+function setStat(id, value) {
+  const el = $(id);
+  if (el.textContent !== String(value)) {
+    el.textContent = value;
+    el.classList.remove("bump");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("bump");
+  }
+}
+function renderHero() {
+  $("hero-title").textContent = state.title;
+  const when = state.started_at ? new Date(state.started_at) : null;
+  $("hero-sub").textContent = (when ? "Started " + when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " · " : "") +
+    (state.ended ? "Call ended" : "Sidekick is listening and acting as you talk");
+  setStat("stat-tasks", state.tasks.length);
+  setStat("stat-events", state.events.length);
+  setStat("stat-pending", state.pending.length);
+  renderRing();
+}
+const clock = { server: null, local: 0 };
+function renderRing() {
+  if (!state || !state.started_at) return;
+  // Use the meeting's own clock (the sample meeting runs on a fixed one).
+  const serverNow = Date.parse(state.now);
+  if (serverNow !== clock.server) { clock.server = serverNow; clock.local = Date.now(); }
+  const now = state.ended ? serverNow : serverNow + (Date.now() - clock.local);
+  const mins = Math.max(0, Math.floor((now - Date.parse(state.started_at)) / 60000));
+  $("ring-num").textContent = mins;
+  const circ = 2 * Math.PI * 42;
+  $("ring-arc").style.strokeDasharray = `${Math.max(2, (Math.min(mins, 60) / 60) * circ)} ${circ}`;
+}
+setInterval(() => { if (state && !state.ended) renderRing(); }, 30000);
+
 function renderCallBar() {
   const has = !!state.link;
   $("call-linked").hidden = !has;
   // Allow a new link only before the bot is in a call.
   $("call-link-form").hidden = state.ended || ["joining", "in_call"].includes(state.bot);
-  $("call-link").placeholder = has ? "Use a different link" : "Got a meeting link? Paste it here (Meet, Zoom or Teams)";
+  $("call-link").placeholder = has ? "Use a different link" : "Paste a meeting link";
   if (has) {
-    $("call-platform").textContent = platformOf(state.link);
+    $("call-platform").textContent = "Open " + platformOf(state.link);
     $("call-open").href = state.link;
-    $("call-bot").textContent = BOT_TEXT[state.bot] || "";
   }
+  $("call-bot").textContent = state.ended ? "" : (has || state.bot !== "none" ? BOT_TEXT[state.bot] : BOT_TEXT.none) || "";
 }
 
 $("call-link-form").addEventListener("submit", async (e) => {
@@ -228,16 +271,15 @@ function isNew(id) {
 const hue = (name) => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 
+// Stacked avatars in the call panel and name chips under the hero.
 function renderTiles() {
-  const speaking = new Set([...document.querySelectorAll(".tile.speaking")].map((t) => t.dataset.name));
-  const people = state.participants.map(
-    (p) => `<div class="tile${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}">
-      <span class="bars"><i></i><i></i><i></i></span>
-      <div class="avatar" style="--h:${hue(p.name)}">${esc(initials(p.name))}</div>
-      <div class="name">${esc(p.name)}</div><div class="tag">${p.internal ? "Team" : "External"}</div></div>`
-  );
-  people.push(`<div class="tile bot"><div class="avatar">S</div><div class="name">Sidekick</div><div class="tag">AI assistant</div></div>`);
-  $("tiles").innerHTML = people.join("");
+  const speaking = new Set([...document.querySelectorAll(".av.speaking")].map((t) => t.dataset.name));
+  $("tiles").innerHTML = state.participants.map(
+    (p) => `<div class="av${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" style="--h:${hue(p.name)}" title="${esc(p.name)}">${esc(initials(p.name))}</div>`
+  ).join("") + `<div class="av bot" title="Sidekick (AI assistant)">sk</div>`;
+  $("chips").innerHTML = state.participants.map(
+    (p) => `<span class="chip${p.internal ? "" : " ext"}${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" title="${p.internal ? "Team" : "External"} · ${esc(p.email)}">${esc(p.name)}</span>`
+  ).join("");
 }
 
 function renderSpeakers() {
@@ -266,8 +308,12 @@ function renderFeed() {
       ? `<span class="lat">${f.latency_ms < 1000 ? Math.max(1, f.latency_ms) + " ms" : (f.latency_ms / 1000).toFixed(1) + " s"} after it was said</span>`
       : "";
     const badge = f.kind === "approval" ? `<span class="badge">${esc(f.status)}</span>` : "";
+    const id = pending ? esc(f.data.approval_id) : "";
     const buttons = pending && !state.ended
-      ? `<div class="actions"><button class="primary" data-approve="${esc(f.data.approval_id)}">Approve &amp; send</button><button data-reject="${esc(f.data.approval_id)}">Reject</button></div>`
+      ? `<div class="decide"><span class="ask">Send it?</span><span class="toggle">
+           <button data-reject="${id}" title="Reject" aria-label="Reject"><svg viewBox="0 0 24 24" data-reject="${id}"><path d="M6 6l12 12M18 6 6 18" data-reject="${id}"/></svg></button>
+           <button class="yes" data-approve="${id}" title="Approve and send" aria-label="Approve and send"><svg viewBox="0 0 24 24" data-approve="${id}"><path d="m5 12 5 5L20 7" data-approve="${id}"/></svg></button>
+         </span></div>`
       : "";
     const link = f.data && f.data.link
       ? ` <a href="${esc(f.data.link)}" target="_blank" rel="noopener">${/calendar\.google/.test(f.data.link) ? "Open in Calendar" : "Open call"}</a>` : "";
@@ -300,9 +346,10 @@ function renderLists() {
 }
 
 function flashSpeaker(name) {
-  document.querySelectorAll(".tile").forEach((t) => t.classList.toggle("speaking", t.dataset.name === name));
+  const all = () => document.querySelectorAll(".av[data-name], .chip");
+  all().forEach((t) => t.classList.toggle("speaking", t.dataset.name === name));
   clearTimeout(speakingTimer);
-  speakingTimer = setTimeout(() => document.querySelectorAll(".tile").forEach((t) => t.classList.remove("speaking")), 1800);
+  speakingTimer = setTimeout(() => all().forEach((t) => t.classList.remove("speaking")), 1800);
 }
 
 function showSummary(s, meeting, fromHistory = false) {
@@ -344,8 +391,10 @@ $("btn-close").addEventListener("click", async () => {
 });
 
 $("feed").addEventListener("click", async (e) => {
-  const approve = e.target.dataset.approve;
-  const reject = e.target.dataset.reject;
+  const btn = e.target.closest("button[data-approve], button[data-reject]");
+  if (!btn) return;
+  const approve = btn.dataset.approve;
+  const reject = btn.dataset.reject;
   try {
     if (approve) await api(`/api/approvals/${approve}`, { approve: true });
     if (reject) await api(`/api/approvals/${reject}`, { approve: false });

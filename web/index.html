@@ -5,134 +5,200 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidekick · Live meeting agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+  <link rel="stylesheet" href="/static/style.css?v=7">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">S</span>
-      <div>
-        <h1>Sidekick</h1>
-        <p class="sub" id="meeting-title">Live meeting agent</p>
-      </div>
-    </div>
-    <div class="status">
-      <span id="status-pill" class="pill ended">Not in a meeting</span>
-      <span id="agent-pill" class="pill">agent</span>
-      <span id="google-pill" class="pill muted"></span>
-    </div>
-    <div class="controls" id="live-controls" hidden>
-      <button id="btn-end" class="primary">End call &amp; send summary</button>
-      <button id="btn-close" class="ghost">Leave</button>
-    </div>
-  </header>
+  <div class="scene" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
 
-  <!-- Setup: shown when no meeting is running -->
-  <main id="setup" class="setup" hidden>
-    <div class="setup-hero"><h2>Meetings that <span>follow through</span></h2><p>Sidekick listens to the call and books, assigns and emails while you talk.</p></div>
-    <section class="card setup-card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>New meeting</h2><span class="hint">Sidekick joins, listens and acts as you talk</span></div>
-      <form id="start-form">
-        <label class="field">Meeting name
-          <input id="m-title" required maxlength="120" placeholder="e.g. Weekly product sync">
-        </label>
-        <label class="field">Meeting link <span class="hint">(optional: Google Meet, Zoom or Teams)</span>
-          <input id="m-link" type="url" placeholder="https://meet.google.com/abc-defg-hij">
-          <span class="hint" id="link-hint"></span>
-        </label>
-        <div class="people-head">
-          <span>People on the call</span>
-          <span class="hint">Tick “team” for people inside your team. Anything sent to others waits for your OK.</span>
+  <!-- Floating dock -->
+  <nav class="dock" aria-label="Quick actions">
+    <a class="dock-btn" href="#top" title="Top" aria-label="Scroll to top">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+    </a>
+    <a class="dock-btn setup-only" href="#history-card" title="Past meetings" aria-label="Past meetings">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>
+    </a>
+    <a class="dock-btn setup-only" href="#connections-card" title="Connections" aria-label="Connections">
+      <svg viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8Z"/><path d="M12 18v4"/></svg>
+    </a>
+    <a class="dock-btn live-only" href="#activity" title="Live activity" aria-label="Live activity">
+      <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    </a>
+    <a class="dock-btn live-only" href="#workspace" title="Tasks and calendar" aria-label="Tasks and calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    </a>
+  </nav>
+
+  <div class="shell" id="top">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">sk</span>
+        <div class="brand-text">
+          <h1>Sidekick</h1>
+          <p class="sub" id="meeting-title">Live meeting agent</p>
         </div>
-        <div id="people" class="people"></div>
-        <button type="button" id="add-person" class="ghost small">+ Add person</button>
-        <details class="contacts">
-          <summary>Others Sidekick may email or invite (optional)</summary>
-          <div id="contacts" class="people"></div>
-          <button type="button" id="add-contact" class="ghost small">+ Add contact</button>
-        </details>
-        <p id="start-error" class="error" hidden></p>
-        <div class="start-row">
-          <button type="submit" class="primary">Start meeting</button>
-          <span id="mode-note" class="hint"></span>
+      </div>
+      <div class="seg" role="status">
+        <span id="status-pill" class="seg-item">Not in a meeting</span>
+        <span id="agent-pill" class="seg-item">agent</span>
+        <span id="google-pill" class="seg-item"></span>
+      </div>
+      <div class="controls" id="live-controls" hidden>
+        <button id="btn-end" class="cream">End call &amp; send summary</button>
+        <button id="btn-close" class="circle" title="Leave" aria-label="Leave">
+          <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Setup: shown when no meeting is running -->
+    <main id="setup" hidden>
+      <section class="hero">
+        <h2 class="display">Meetings that<br>follow through</h2>
+        <p class="lede">Sidekick listens to the call, then books, assigns and emails while you talk.</p>
+      </section>
+
+      <div class="setup-grid">
+        <section class="panel setup-card">
+          <div class="panel-head"><h3>New meeting</h3><span class="hint">Sidekick joins as a visible participant</span></div>
+          <form id="start-form">
+            <label class="field">Meeting name
+              <input id="m-title" required maxlength="120" placeholder="e.g. Weekly product sync">
+            </label>
+            <label class="field">Meeting link <span class="hint">optional · Google Meet, Zoom or Teams</span>
+              <input id="m-link" type="url" placeholder="https://meet.google.com/abc-defg-hij">
+              <span class="hint" id="link-hint"></span>
+            </label>
+            <div class="people-head">
+              <span>People on the call</span>
+              <span class="hint">Tick “team” for teammates. Anything sent to others waits for your OK.</span>
+            </div>
+            <div id="people" class="people"></div>
+            <button type="button" id="add-person" class="pill small">+ Add person</button>
+            <details class="contacts">
+              <summary>Others Sidekick may email or invite</summary>
+              <div id="contacts" class="people"></div>
+              <button type="button" id="add-contact" class="pill small">+ Add contact</button>
+            </details>
+            <p id="start-error" class="error" hidden></p>
+            <div class="start-row">
+              <button type="submit" class="cream big">Start meeting</button>
+              <span id="mode-note" class="hint"></span>
+            </div>
+          </form>
+        </section>
+
+        <div class="side-col">
+          <section class="panel" id="connections-card">
+            <div class="panel-head"><h3>Connections</h3></div>
+            <ul class="list" id="connections"></ul>
+          </section>
+          <section class="panel" id="history-card">
+            <div class="panel-head"><h3>Past meetings</h3>
+              <input id="search" class="search" placeholder="Search…" aria-label="Search past meetings">
+            </div>
+            <ul class="list" id="history"></ul>
+          </section>
         </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8Z"/><path d="M12 18v4"/></svg>Connections</h2></div>
-      <ul class="list" id="connections"></ul>
-    </section>
-
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Past meetings</h2>
-        <input id="search" class="search" placeholder="Search transcripts…" aria-label="Search past meetings">
       </div>
-      <ul class="list" id="history"></ul>
-    </section>
 
-    <p class="demo-link">Just looking? <button type="button" id="btn-demo" class="link">Play a sample meeting</button></p>
-  </main>
+      <p class="demo-link">Just looking? <button type="button" id="btn-demo" class="link">Play a sample meeting</button></p>
+    </main>
 
-  <!-- Live meeting -->
-  <main id="live" class="grid" hidden>
-    <p id="mode-banner" class="banner" hidden></p>
-    <div id="call-bar" class="call-bar">
-      <div id="call-linked" hidden>
-        <span id="call-platform" class="main"></span>
-        <a id="call-open" class="call-open" target="_blank" rel="noopener">Open call ↗</a>
-        <span id="call-bot" class="hint"></span>
+    <!-- Live meeting -->
+    <main id="live" hidden>
+      <section class="live-hero">
+        <div class="hero-title">
+          <h2 class="display" id="hero-title">Meeting</h2>
+          <p class="lede" id="hero-sub"></p>
+        </div>
+        <div class="ring" title="Minutes in this meeting">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ring-track" cx="50" cy="50" r="42"/>
+            <circle class="ring-arc" id="ring-arc" cx="50" cy="50" r="42"/>
+          </svg>
+          <span class="ring-num"><b id="ring-num">0</b><sup>min</sup></span>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Action items</span><span class="stat-num" id="stat-tasks">0</span></div>
+          <div class="stat"><span class="stat-label">Meetings booked</span><span class="stat-num" id="stat-events">0</span></div>
+          <div class="stat"><span class="stat-label">Awaiting your OK</span><span class="stat-num" id="stat-pending">0</span></div>
+        </div>
+      </section>
+
+      <div class="chip-row">
+        <div id="chips" class="chips"></div>
+        <div id="call-bar" class="call-bar">
+          <div id="call-linked" hidden>
+            <a id="call-open" class="pill cream-pill" target="_blank" rel="noopener"><span id="call-platform"></span> ↗</a>
+          </div>
+          <form id="call-link-form" class="call-link-form">
+            <input id="call-link" type="url" placeholder="Paste a meeting link" aria-label="Meeting link">
+            <button type="submit" class="circle" title="Use this link" aria-label="Use this link">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </form>
+        </div>
       </div>
-      <form id="call-link-form" class="call-link-form">
-        <input id="call-link" type="url" placeholder="Got a meeting link? Paste it here (Meet, Zoom or Teams)" aria-label="Meeting link">
-        <button type="submit" class="small">Use this link</button>
-        <span id="call-link-error" class="error" hidden></span>
-      </form>
-    </div>
-    <section class="card call">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>Call</h2><span class="hint">Sidekick joined as a participant</span></div>
-      <div id="tiles" class="tiles"></div>
-      <div id="transcript" class="transcript" aria-live="polite"></div>
-      <form id="say" class="say">
-        <select id="speaker" aria-label="Who is speaking"></select>
-        <input id="text" autocomplete="off" placeholder="What was said, e.g. “Let’s meet Thursday afternoon”">
-        <button type="button" id="btn-mic" title="Live transcription from your microphone (Chrome/Edge)">🎤</button>
-        <button type="submit" class="primary">Add</button>
-      </form>
-    </section>
+      <p id="call-link-error" class="error" hidden></p>
+      <p id="mode-banner" class="banner" hidden></p>
+      <p id="call-bot" class="banner subtle"></p>
 
-    <section class="card feed-card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live activity</h2><span class="hint">Every action, as it happens</span></div>
-      <ol id="feed" class="feed"></ol>
-    </section>
+      <div class="live-grid">
+        <section class="panel call">
+          <div class="panel-head">
+            <div class="who-row"><div id="tiles" class="avatars"></div></div>
+            <span class="hint">Sidekick is in the call</span>
+          </div>
+          <div id="transcript" class="transcript" aria-live="polite"></div>
+          <form id="say" class="say">
+            <select id="speaker" aria-label="Who is speaking"></select>
+            <input id="text" autocomplete="off" placeholder="What was said, e.g. “Let’s meet Thursday afternoon”">
+            <button type="button" id="btn-mic" class="circle" title="Live transcription (Chrome/Edge)" aria-label="Microphone">
+              <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
+            </button>
+            <button type="submit" class="circle cream-circle" title="Add" aria-label="Add">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </form>
+        </section>
 
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</h2><span class="hint" id="events-count"></span></div>
-      <ul id="events" class="list"></ul>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tasks</h2><span class="hint" id="tasks-count"></span></div>
-      <ul id="tasks" class="list"></ul>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>Decisions</h2></div>
-      <ul id="decisions" class="list"></ul>
-      <div class="card-head sub-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Meeting chat</h2></div>
-      <ul id="chat" class="list chat"></ul>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Outbox</h2><span class="hint" id="outbox-hint">Emails</span></div>
-      <ul id="outbox" class="list"></ul>
-    </section>
-  </main>
+        <section class="panel feed-card" id="activity">
+          <div class="panel-head"><h3>Live activity</h3><span class="hint">Every action, as it happens</span></div>
+          <ol id="feed" class="feed"></ol>
+        </section>
+      </div>
+
+      <div class="work-grid" id="workspace">
+        <section class="tile-card">
+          <div class="panel-head"><h3>Calendar</h3><span class="count" id="events-count"></span></div>
+          <ul id="events" class="list"></ul>
+        </section>
+        <section class="tile-card">
+          <div class="panel-head"><h3>Tasks</h3><span class="count" id="tasks-count"></span></div>
+          <ul id="tasks" class="list"></ul>
+        </section>
+        <section class="tile-card">
+          <div class="panel-head"><h3>Decisions</h3></div>
+          <ul id="decisions" class="list"></ul>
+          <div class="panel-head sub-head"><h3>Meeting chat</h3></div>
+          <ul id="chat" class="list chat"></ul>
+        </section>
+        <section class="tile-card">
+          <div class="panel-head"><h3>Outbox</h3><span class="count" id="outbox-hint">Emails</span></div>
+          <ul id="outbox" class="list"></ul>
+        </section>
+      </div>
+    </main>
+  </div>
 
   <dialog id="summary-dialog">
     <h2 id="summary-title">Meeting summary</h2>
     <pre id="summary-text"></pre>
-    <form method="dialog"><button class="primary">Close</button></form>
+    <form method="dialog"><button class="cream">Close</button></form>
   </dialog>
 
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>
