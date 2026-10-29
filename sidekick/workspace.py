@@ -39,6 +39,7 @@ class CalendarEvent:
     end: datetime
     attendees: list[str]
     created_by_agent: bool = True
+    link: str = ""         # the provider's page for the event, when real
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -54,6 +55,7 @@ class Email:
     subject: str
     body: str
     sent_at: datetime
+    delivered: bool = False  # True when a real provider sent it
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -75,17 +77,43 @@ class Task:
         return d
 
 
+# Shared mail providers: a host on one of these does not make every other
+# user of that provider a teammate.
+PUBLIC_DOMAINS = {
+    "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com",
+    "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com",
+}
+
+
+class WorkspaceError(Exception):
+    """A calendar or mail provider refused or failed a request."""
+
+
 @dataclass
 class Workspace:
-    team_domain: str
+    """Local workspace: keeps the meeting's records and simulates delivery.
+    GoogleWorkspace (google_workspace.py) overrides the delivery hooks."""
+
+    team_domain: str | None = None
+    internal_emails: set[str] = field(default_factory=set)
     busy: dict[str, list[tuple[datetime, datetime]]] = field(default_factory=dict)
     events: list[CalendarEvent] = field(default_factory=list)
     outbox: list[Email] = field(default_factory=list)
     tasks: list[Task] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
 
+    provider = "local"     # shown in the UI; "google" when connected
+    delivers = False       # True when invites and emails really go out
+
     def is_internal(self, email: str) -> bool:
-        return email.lower().endswith("@" + self.team_domain)
+        email = email.lower()
+        if email in self.internal_emails:
+            return True
+        return bool(self.team_domain) and self.team_domain not in PUBLIC_DOMAINS and email.endswith("@" + self.team_domain)
+
+    def calendars_not_visible(self, emails: list[str]) -> list[str]:
+        """Attendees whose free/busy the provider could not read."""
+        return []
 
     def add_busy(self, email: str, start: datetime, end: datetime) -> None:
         self.busy.setdefault(email.lower(), []).append((start, end))
@@ -121,7 +149,8 @@ class Workspace:
             cursor += SLOT_STEP
         return found
 
-    def create_event(self, title: str, start: datetime, duration: timedelta, attendees: list[str]) -> CalendarEvent:
+    def create_event(self, title: str, start: datetime, duration: timedelta, attendees: list[str],
+                     description: str = "") -> CalendarEvent:
         event = CalendarEvent(new_id("evt"), title, start, start + duration, attendees)
         self.events.append(event)
         return event
@@ -141,7 +170,11 @@ class Workspace:
         return None
 
     def send_email(self, to: list[str], subject: str, body: str, now: datetime) -> Email:
-        email = Email(new_id("mail"), to, subject, body, now)
+        """Send a message. Locally it is only recorded; GoogleWorkspace delivers it."""
+        return self.record_email(to, subject, body, now)
+
+    def record_email(self, to: list[str], subject: str, body: str, now: datetime, delivered: bool = False) -> Email:
+        email = Email(new_id("mail"), list(to), subject, body, now, delivered=delivered)
         self.outbox.append(email)
         return email
 
@@ -165,6 +198,10 @@ _STOP = {"the", "a", "an", "to", "and", "of", "for", "on", "by", "i'll", "will",
 
 def _keywords(text: str) -> set[str]:
     return {w.strip(".,!?").lower() for w in text.split() if w.lower() not in _STOP and len(w) > 2}
+
+
+def local_tz():
+    return datetime.now().astimezone().tzinfo
 
 
 def seed_demo_workspace(team_domain: str, week_of: date) -> Workspace:

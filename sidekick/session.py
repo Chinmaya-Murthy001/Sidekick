@@ -13,32 +13,48 @@ from datetime import timedelta
 
 from .meeting import Meeting
 from .tools import ToolBox
+from .workspace import WorkspaceError
 
 PAUSE_RE = re.compile(r"\bsidekick\b[^.?!]*\b(stop|pause)\b[^.?!]*\b(recording|listening|notes|transcrib\w*)\b|\bsidekick,? (pause|stop)\b", re.I)
 RESUME_RE = re.compile(r"\bsidekick\b[^.?!]*\b(resume|start (recording|listening) again|you can (listen|record) again|unpause)\b", re.I)
 
 
 class SidekickSession:
-    def __init__(self, meeting: Meeting, agent):
+    def __init__(self, meeting: Meeting, agent, store=None):
         self.meeting = meeting
         self.agent = agent
         self.tools = ToolBox(meeting)
+        self.store = store
         # One utterance at a time, in order, so actions never race each other.
         self._lock = threading.Lock()
 
+    def _save(self) -> None:
+        if self.store is not None:
+            self.store.save(self.meeting, self.agent.name)
+
     def join(self) -> None:
         m = self.meeting
+        m.started_at = m.now()
+        where = ("invites and emails go out through your Google account" if m.workspace.delivers
+                 else "local mode: invites and emails are recorded here, not sent")
         m.log("joined", "Sidekick joined the call",
-              f"Agent: {self.agent.name}. Listening to {len(m.participants)} participants.")
+              f"Agent: {self.agent.name}. Listening to {len(m.participants)} participants; {where}.")
         m.post_chat("Hi, I'm Sidekick, an AI assistant. I'm transcribing this call and will schedule meetings, "
                     "log tasks and decisions as you talk. Say \"Sidekick, stop recording\" to pause me. "
                     "Nothing goes outside the team without the host's OK.")
+        self._save()
 
     def hear(self, speaker: str, text: str) -> list[str]:
         """Process one finished utterance. Returns the kinds of action taken."""
         text = text.strip()
         if not text:
             return []
+        try:
+            return self._hear(speaker, text)
+        finally:
+            self._save()
+
+    def _hear(self, speaker: str, text: str) -> list[str]:
         with self._lock:
             m = self.meeting
             if m.ended:
@@ -66,7 +82,11 @@ class SidekickSession:
 
     def approve(self, approval_id: str, approve: bool) -> dict:
         with self._lock:
-            return self.tools.resolve_approval(approval_id, approve)
+            result = self.tools.resolve_approval(approval_id, approve)
+        if "error" in result and result["error"] != "no such pending approval":
+            self.meeting.log("error", "Could not complete the approved action", result["error"], status="failed")
+        self._save()
+        return result
 
     def end(self, send_summary: bool = True) -> dict:
         with self._lock:
@@ -81,13 +101,20 @@ class SidekickSession:
                 except Exception as e:
                     m.log("warning", "LLM recap failed, sent the structured summary instead", str(e))
             m.summary = summary
-            if send_summary:
+            internal = [p.email for p in m.participants if m.workspace.is_internal(p.email)]
+            if send_summary and internal:
                 body = summary.get("recap") or format_summary(summary)
-                internal = [p.email for p in m.participants if m.workspace.is_internal(p.email)]
-                m.workspace.send_email(internal, f"Summary: {m.title}", body, m.now())
-                m.log("summary", "Summary emailed to the team", f"{len(internal)} recipients", recipients=internal)
+                try:
+                    m.workspace.send_email(internal, f"Summary: {m.title}", body, m.now())
+                    sent = "emailed" if m.workspace.delivers else "recorded (local mode, not sent)"
+                    m.log("summary", f"Summary {sent} for the team", f"{len(internal)} recipients", recipients=internal)
+                except WorkspaceError as e:
+                    m.log("error", "Summary could not be sent", str(e), status="failed")
+            elif send_summary:
+                m.log("info", "Summary ready", "Nobody is marked as team, so it was not emailed.")
             m.publish({"type": "state", "state": m.state_dict()})
-            return summary
+        self._save()
+        return summary
 
 
 def open_questions(m: Meeting) -> list[str]:

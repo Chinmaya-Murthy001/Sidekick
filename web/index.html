@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidekick · Live meeting agent</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -16,27 +16,70 @@
       </div>
     </div>
     <div class="status">
-      <span id="status-pill" class="pill live">● Live</span>
+      <span id="status-pill" class="pill ended">Not in a meeting</span>
       <span id="agent-pill" class="pill">agent</span>
-      <span id="clock" class="pill muted"></span>
+      <span id="google-pill" class="pill muted"></span>
     </div>
-    <div class="controls">
-      <button id="btn-demo" class="primary">▶ Play demo meeting</button>
-      <button id="btn-end">End call &amp; send summary</button>
-      <button id="btn-new" class="ghost">New meeting</button>
+    <div class="controls" id="live-controls" hidden>
+      <button id="btn-end" class="primary">End call &amp; send summary</button>
+      <button id="btn-close" class="ghost">Leave</button>
     </div>
   </header>
 
-  <main class="grid">
+  <!-- Setup: shown when no meeting is running -->
+  <main id="setup" class="setup" hidden>
+    <section class="card setup-card">
+      <div class="card-head"><h2>Start a meeting</h2><span class="hint">Sidekick joins, listens and acts as you talk</span></div>
+      <form id="start-form">
+        <label class="field">Meeting name
+          <input id="m-title" required maxlength="120" placeholder="e.g. Weekly product sync">
+        </label>
+        <div class="people-head">
+          <span>People on the call</span>
+          <span class="hint">Tick “team” for people inside your team. Anything sent to others waits for your OK.</span>
+        </div>
+        <div id="people" class="people"></div>
+        <button type="button" id="add-person" class="ghost small">+ Add person</button>
+        <details class="contacts">
+          <summary>Others Sidekick may email or invite (optional)</summary>
+          <div id="contacts" class="people"></div>
+          <button type="button" id="add-contact" class="ghost small">+ Add contact</button>
+        </details>
+        <p id="start-error" class="error" hidden></p>
+        <div class="start-row">
+          <button type="submit" class="primary">Start meeting</button>
+          <span id="mode-note" class="hint"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Connections</h2></div>
+      <ul class="list" id="connections"></ul>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Past meetings</h2>
+        <input id="search" class="search" placeholder="Search transcripts…" aria-label="Search past meetings">
+      </div>
+      <ul class="list" id="history"></ul>
+    </section>
+
+    <p class="demo-link">Just looking? <button type="button" id="btn-demo" class="link">Play a sample meeting</button></p>
+  </main>
+
+  <!-- Live meeting -->
+  <main id="live" class="grid" hidden>
+    <p id="mode-banner" class="banner" hidden></p>
     <section class="card call">
-      <div class="card-head"><h2>Call</h2><span class="hint">Google Meet · Sidekick joined as a participant</span></div>
+      <div class="card-head"><h2>Call</h2><span class="hint">Sidekick joined as a participant</span></div>
       <div id="tiles" class="tiles"></div>
       <div id="transcript" class="transcript" aria-live="polite"></div>
       <form id="say" class="say">
-        <select id="speaker" aria-label="Speaker"></select>
-        <input id="text" autocomplete="off" placeholder="Type what someone says, e.g. “Let's meet Thursday afternoon”">
-        <button type="button" id="btn-mic" title="Speak (Chrome)">🎤</button>
-        <button type="submit" class="primary">Say</button>
+        <select id="speaker" aria-label="Who is speaking"></select>
+        <input id="text" autocomplete="off" placeholder="What was said, e.g. “Let’s meet Thursday afternoon”">
+        <button type="button" id="btn-mic" title="Live transcription from your microphone (Chrome/Edge)">🎤</button>
+        <button type="submit" class="primary">Add</button>
       </form>
     </section>
 
@@ -60,17 +103,17 @@
       <ul id="chat" class="list chat"></ul>
     </section>
     <section class="card">
-      <div class="card-head"><h2>Outbox</h2><span class="hint">Emails sent</span></div>
+      <div class="card-head"><h2>Outbox</h2><span class="hint" id="outbox-hint">Emails</span></div>
       <ul id="outbox" class="list"></ul>
     </section>
   </main>
 
   <dialog id="summary-dialog">
-    <h2>Meeting summary sent</h2>
+    <h2 id="summary-title">Meeting summary</h2>
     <pre id="summary-text"></pre>
     <form method="dialog"><button class="primary">Close</button></form>
   </dialog>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2"></script>
 </body>
 </html>

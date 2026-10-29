@@ -1,4 +1,4 @@
-// Sidekick dashboard: renders the live meeting state pushed over a WebSocket.
+// Sidekick dashboard: meeting setup, then the live meeting pushed over a WebSocket.
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -8,23 +8,166 @@ const dayTime = (iso) => {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " · " + hhmm(iso);
 };
 
-let state = null;
+let state = null;   // the running meeting, or null
+let status = null;  // /api/status
 let speakingTimer = null;
 
 async function api(path, body) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    let msg = await res.text();
+    try { msg = JSON.parse(msg).detail; } catch {}
+    throw new Error(Array.isArray(msg) ? msg.map((m) => m.msg).join("; ") : msg);
+  }
   return res.json();
 }
 
-// --- rendering ----------------------------------------------------------
-function renderAll() {
-  if (!state) return;
-  $("meeting-title").textContent = state.title + " · " + state.participants.length + " people";
+// --- top bar and screens ------------------------------------------------
+function renderShell() {
+  const live = !!state;
+  $("setup").hidden = live;
+  $("live").hidden = !live;
+  $("live-controls").hidden = !live;
   const pill = $("status-pill");
-  pill.className = "pill " + (state.ended ? "ended" : state.paused ? "paused" : "live");
-  pill.textContent = state.ended ? "Call ended" : state.paused ? "❚❚ Paused (not recording)" : "● Live";
-  $("clock").textContent = state.now ? "Meeting time " + dayTime(state.now) : "";
+  if (!live) {
+    pill.className = "pill ended";
+    pill.textContent = "Not in a meeting";
+    $("meeting-title").textContent = "Live meeting agent";
+  } else {
+    pill.className = "pill " + (state.ended ? "ended" : state.paused ? "paused" : "live");
+    pill.textContent = state.ended ? "Call ended" : state.paused ? "❚❚ Paused (not recording)" : "● Live";
+    $("meeting-title").textContent = state.title + " · " + state.participants.length + " people";
+    $("btn-end").hidden = state.ended;
+    $("btn-close").textContent = state.ended ? "New meeting" : "Leave";
+  }
+  if (status) {
+    const agent = (live && status.meeting_agent) || status.agent;
+    $("agent-pill").textContent = agent === "claude" ? "Agent: Claude" : "Agent: offline planner";
+    $("google-pill").textContent = status.google.connected ? "Google: " + (status.google.email || "connected") : "Local mode";
+  }
+}
+
+// --- setup --------------------------------------------------------------
+function personRow(container, p = {}, teamDefault = true) {
+  const row = document.createElement("div");
+  row.className = "person";
+  row.innerHTML = `<input class="p-name" placeholder="Name" maxlength="80" value="${esc(p.name || "")}">
+    <input class="p-email" type="email" placeholder="email@company.com" value="${esc(p.email || "")}">
+    <label><input type="checkbox" class="p-team" ${p.team ?? teamDefault ? "checked" : ""}> team</label>
+    <button type="button" class="remove" title="Remove">✕</button>`;
+  row.querySelector(".remove").onclick = () => row.remove();
+  container.appendChild(row);
+}
+
+function readPeople(container) {
+  return [...container.querySelectorAll(".person")]
+    .map((r) => ({ name: r.querySelector(".p-name").value.trim(), email: r.querySelector(".p-email").value.trim(), team: r.querySelector(".p-team").checked }))
+    .filter((p) => p.name || p.email);
+}
+
+function rememberSetup() {
+  try {
+    localStorage.setItem("sidekick.setup", JSON.stringify({ title: $("m-title").value, people: readPeople($("people")), contacts: readPeople($("contacts")) }));
+  } catch {}
+}
+
+function restoreSetup() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("sidekick.setup") || "null"); } catch {}
+  $("people").innerHTML = "";
+  $("contacts").innerHTML = "";
+  if (saved && saved.people && saved.people.length) {
+    $("m-title").value = saved.title || "";
+    saved.people.forEach((p) => personRow($("people"), p));
+    (saved.contacts || []).forEach((p) => personRow($("contacts"), p, false));
+  } else {
+    const me = status && status.google.email;
+    personRow($("people"), me ? { name: me.split("@")[0], email: me, team: true } : {});
+    personRow($("people"));
+  }
+}
+
+function renderConnections() {
+  if (!status) return;
+  const g = status.google;
+  const google = g.connected
+    ? `<span class="ok">Connected as ${esc(g.email || "your account")}</span> <button class="link" id="g-off">Disconnect</button>`
+    : g.configured
+      ? `<span class="off">Not connected</span> <a href="/auth/google/start"><button type="button" class="small">Connect Google</button></a>`
+      : `<span class="off">Not set up: add data/google_client_secret.json (see README)</span>`;
+  const agent = status.agent === "claude"
+    ? `<span class="ok">Claude</span>`
+    : `<span class="off">Offline planner. Set ANTHROPIC_API_KEY in .env for Claude</span>`;
+  const bot = status.recall.enabled && status.recall.webhook
+    ? `<span class="ok">Recall.ai ready</span>`
+    : `<span class="off">Optional: RECALL_API_KEY and PUBLIC_URL let Sidekick join a Meet link itself</span>`;
+  $("connections").innerHTML = `
+    <li class="conn"><div><div class="main">Google Calendar &amp; Gmail</div><div class="small">Real free/busy, real invites and emails</div></div><div>${google}</div></li>
+    <li class="conn"><div><div class="main">AI agent</div><div class="small">Decides what to do as people talk</div></div><div>${agent}</div></li>
+    <li class="conn"><div><div class="main">Meeting bot</div><div class="small">Without it, use this page’s microphone during the call</div></div><div>${bot}</div></li>`;
+  const off = $("g-off");
+  if (off) off.onclick = async () => { await api("/auth/google/disconnect"); await refreshStatus(); };
+  $("mode-note").textContent = g.connected
+    ? "Invites and emails will be sent from your Google account."
+    : "Local mode: invites and emails are recorded here, not sent.";
+}
+
+async function loadHistory(q = "") {
+  const res = await fetch("/api/meetings" + (q ? "?q=" + encodeURIComponent(q) : ""));
+  const items = await res.json();
+  $("history").innerHTML = items.map((m) => `<li class="history-item" data-id="${esc(m.id)}">
+      <div class="main">${esc(m.title)}</div>
+      <div class="small">${m.started_at ? dayTime(m.started_at) : ""} · ${m.tasks} tasks · ${m.events} meetings booked · ${m.decisions} decisions${m.ended ? "" : " · not finished"}</div>
+    </li>`).join("") || `<li class="empty">${q ? "No meetings mention that" : "No meetings yet"}</li>`;
+}
+
+$("history").addEventListener("click", async (e) => {
+  const li = e.target.closest(".history-item");
+  if (!li) return;
+  const m = await (await fetch("/api/meetings/" + li.dataset.id)).json();
+  showSummary(m.summary || { meeting: m.title }, m, true);
+});
+let searchTimer = null;
+$("search").addEventListener("input", (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadHistory(e.target.value.trim()), 250);
+});
+
+$("add-person").onclick = () => personRow($("people"));
+$("add-contact").onclick = () => personRow($("contacts"), {}, false);
+
+$("start-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = $("start-error");
+  err.hidden = true;
+  const participants = readPeople($("people"));
+  const contacts = readPeople($("contacts"));
+  const missing = [...participants, ...contacts].find((p) => !p.name || !p.email);
+  if (!participants.length || missing) {
+    err.textContent = "Give every person a name and an email.";
+    err.hidden = false;
+    return;
+  }
+  rememberSetup();
+  try {
+    await api("/api/meeting/start", { title: $("m-title").value.trim(), participants, contacts });
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.hidden = false;
+  }
+});
+
+$("btn-demo").onclick = async () => {
+  try { await api("/api/demo"); } catch (ex) { alert(ex.message); }
+};
+
+// --- live meeting -------------------------------------------------------
+function renderLive() {
+  if (!state) return;
+  const banner = $("mode-banner");
+  banner.hidden = state.delivers;
+  banner.textContent = "Local mode: calendar invites and emails are recorded on this page but not sent. Connect Google on the start screen to send them for real.";
+  $("outbox-hint").textContent = state.delivers ? "Sent from your Google account" : "Recorded, not sent";
   renderTiles();
   renderSpeakers();
   renderTranscript();
@@ -44,7 +187,7 @@ function renderSpeakers() {
   const sel = $("speaker");
   const current = sel.value;
   sel.innerHTML = state.participants.map((p) => `<option>${esc(p.name)}</option>`).join("");
-  if (current) sel.value = current;
+  if (current && state.participants.some((p) => p.name === current)) sel.value = current;
 }
 
 function renderTranscript() {
@@ -55,7 +198,7 @@ function renderTranscript() {
     return `<div class="line${acted ? " acted" : ""}"><span class="t">${hhmm(u.at)}</span><span class="who">${esc(u.speaker)}</span>${esc(u.text)}</div>`;
   });
   if (state.paused) lines.push(`<div class="line system">Recording paused. Nothing is transcribed until someone says “Sidekick, resume”.</div>`);
-  box.innerHTML = lines.join("") || `<div class="line system">Waiting for someone to speak… Press “Play demo meeting”, type below, or use the mic.</div>`;
+  box.innerHTML = lines.join("") || `<div class="line system">Waiting for someone to speak. Pick who is talking, then use the 🎤 microphone or type what was said.</div>`;
   box.scrollTop = box.scrollHeight;
 }
 
@@ -66,13 +209,14 @@ function renderFeed() {
       ? `<span class="lat">${f.latency_ms < 1000 ? Math.max(1, f.latency_ms) + " ms" : (f.latency_ms / 1000).toFixed(1) + " s"} after it was said</span>`
       : "";
     const badge = f.kind === "approval" ? `<span class="badge">${esc(f.status)}</span>` : "";
-    const buttons = pending
+    const buttons = pending && !state.ended
       ? `<div class="actions"><button class="primary" data-approve="${esc(f.data.approval_id)}">Approve &amp; send</button><button data-reject="${esc(f.data.approval_id)}">Reject</button></div>`
       : "";
+    const link = f.data && f.data.link ? ` <a href="${esc(f.data.link)}" target="_blank" rel="noopener">Open in Calendar</a>` : "";
     return `<li class="${esc(f.kind)} ${esc(f.status)}">
       <div class="title">${esc(f.title)}</div>
       <div class="meta"><span>${hhmm(f.at)}</span>${badge}${lat}</div>
-      ${f.detail ? `<div class="detail">${esc(f.detail)}</div>` : ""}
+      ${f.detail ? `<div class="detail">${esc(f.detail)}${link}</div>` : ""}
       ${f.data && f.data.quote ? `<div class="quote">${esc(f.data.quote)}</div>` : ""}
       ${buttons}
     </li>`;
@@ -83,7 +227,7 @@ function renderFeed() {
 function renderLists() {
   const empty = (msg) => `<li class="empty">${msg}</li>`;
   $("events").innerHTML =
-    state.events.map((e) => `<li><div class="main">${esc(e.title)}</div><div class="small">${dayTime(e.start)}–${hhmm(e.end)} · ${e.attendees.length} invited</div></li>`).join("") ||
+    state.events.map((e) => `<li><div class="main">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</div><div class="small">${dayTime(e.start)}–${hhmm(e.end)} · ${e.attendees.length} invited</div></li>`).join("") ||
     empty("No meetings booked yet");
   $("events-count").textContent = state.events.length ? `${state.events.length} booked` : "";
   $("tasks").innerHTML =
@@ -92,8 +236,8 @@ function renderLists() {
   $("tasks-count").textContent = state.tasks.length ? `${state.tasks.length} open` : "";
   $("decisions").innerHTML = state.decisions.map((d) => `<li>${esc(d)}</li>`).join("") || empty("No decisions yet");
   $("outbox").innerHTML =
-    state.outbox.map((m) => `<li><div class="main">${esc(m.subject)}</div><div class="small">to ${esc(m.to.join(", "))} · ${hhmm(m.sent_at)}</div></li>`).join("") ||
-    empty("Nothing sent yet");
+    state.outbox.map((m) => `<li><div class="main">${esc(m.subject)}</div><div class="small">to ${esc(m.to.join(", "))} · ${hhmm(m.sent_at)}${m.delivered ? " · sent" : " · recorded"}</div></li>`).join("") ||
+    empty("Nothing yet");
   $("chat").innerHTML = (state.chat || []).map((c) => `<li><b>Sidekick:</b> ${esc(c.text)}</li>`).join("") || empty("Quiet");
 }
 
@@ -103,53 +247,30 @@ function flashSpeaker(name) {
   speakingTimer = setTimeout(() => document.querySelectorAll(".tile").forEach((t) => t.classList.remove("speaking")), 1800);
 }
 
-// --- live updates -------------------------------------------------------
-function connect() {
-  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === "reset") {
-      state = msg.state;
-    } else if (!state) {
-      return;
-    } else if (msg.type === "utterance") {
-      state.transcript.push(msg.utterance);
-      flashSpeaker(msg.utterance.speaker);
-    } else if (msg.type === "feed") {
-      state.feed.push(msg.event);
-    } else if (msg.type === "feed_update") {
-      const i = state.feed.findIndex((f) => f.id === msg.event.id);
-      if (i >= 0) state.feed[i] = msg.event;
-    } else if (msg.type === "chat") {
-      state.chat.push(msg.message);
-    } else if (msg.type === "state") {
-      Object.assign(state, msg.state);
-      if (msg.state.summary && msg.state.ended) showSummary(msg.state.summary);
-    }
-    renderAll();
-  };
-  ws.onclose = () => setTimeout(connect, 1000);
-}
-
-function showSummary(s) {
+function showSummary(s, meeting, fromHistory = false) {
   const dlg = $("summary-dialog");
-  if (dlg.open || dlg.dataset.shown === "1") return;
-  dlg.dataset.shown = "1";
-  const lines = s.recap
-    ? [s.recap]
-    : [
-        `${s.meeting} · ${s.duration_minutes} min`,
-        "",
-        "Decisions:", ...(s.decisions.length ? s.decisions.map((d) => "  • " + d) : ["  • none"]),
-        "Action items:", ...(s.tasks.length ? s.tasks.map((t) => `  • ${t.owner}: ${t.description}${t.due ? " (due " + t.due + ")" : ""}`) : ["  • none"]),
-        "Meetings scheduled:", ...(s.meetings_scheduled.length ? s.meetings_scheduled.map((e) => `  • ${e.title} — ${dayTime(e.start)}`) : ["  • none"]),
-        "Open questions:", ...(s.open_questions.length ? s.open_questions.map((q) => "  • " + q) : ["  • none"]),
-      ];
+  if (!fromHistory && (dlg.open || dlg.dataset.shown === (meeting && meeting.id))) return;
+  if (!fromHistory) dlg.dataset.shown = meeting && meeting.id;
+  $("summary-title").textContent = fromHistory ? s.meeting || "Meeting" : "Meeting summary";
+  let lines;
+  if (s.recap) {
+    lines = [s.recap];
+  } else if (s.decisions) {
+    lines = [
+      `${s.meeting} · ${s.duration_minutes} min`, "",
+      "Decisions:", ...(s.decisions.length ? s.decisions.map((d) => "  • " + d) : ["  • none"]),
+      "Action items:", ...(s.tasks.length ? s.tasks.map((t) => `  • ${t.owner}: ${t.description}${t.due ? " (due " + t.due + ")" : ""}`) : ["  • none"]),
+      "Meetings scheduled:", ...(s.meetings_scheduled.length ? s.meetings_scheduled.map((e) => `  • ${e.title} — ${dayTime(e.start)}`) : ["  • none"]),
+      "Open questions:", ...(s.open_questions.length ? s.open_questions.map((q) => "  • " + q) : ["  • none"]),
+    ];
+  } else {
+    lines = ["This meeting was not finished, so there is no summary.", "", "Transcript:",
+      ...((meeting && meeting.transcript) || []).map((u) => `${hhmm(u.at)} ${u.speaker}: ${u.text}`)];
+  }
   $("summary-text").textContent = lines.join("\n");
   dlg.showModal();
 }
 
-// --- controls -----------------------------------------------------------
 $("say").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = $("text").value.trim();
@@ -158,22 +279,19 @@ $("say").addEventListener("submit", async (e) => {
   await api("/api/utterance", { speaker: $("speaker").value, text });
 });
 
-$("btn-demo").addEventListener("click", async () => {
-  $("btn-demo").disabled = true;
-  await api("/api/demo/play", { delay: 2.5 });
-});
 $("btn-end").addEventListener("click", () => api("/api/end"));
-$("btn-new").addEventListener("click", async () => {
-  $("summary-dialog").dataset.shown = "0";
-  $("btn-demo").disabled = false;
-  await api("/api/meeting/new", {});
+$("btn-close").addEventListener("click", async () => {
+  if (state && !state.ended && !confirm("Leave and end this meeting? The summary will be sent.")) return;
+  await api("/api/close");
 });
 
 $("feed").addEventListener("click", async (e) => {
   const approve = e.target.dataset.approve;
   const reject = e.target.dataset.reject;
-  if (approve) await api(`/api/approvals/${approve}`, { approve: true });
-  if (reject) await api(`/api/approvals/${reject}`, { approve: false });
+  try {
+    if (approve) await api(`/api/approvals/${approve}`, { approve: true });
+    if (reject) await api(`/api/approvals/${reject}`, { approve: false });
+  } catch (ex) { alert(ex.message); }
 });
 
 // Live speech-to-text from the browser microphone (Chrome / Edge).
@@ -182,37 +300,84 @@ $("feed").addEventListener("click", async (e) => {
   const btn = $("btn-mic");
   if (!SR) {
     btn.disabled = true;
-    btn.title = "Speech recognition needs Chrome or Edge";
+    btn.title = "Live transcription needs Chrome or Edge";
     return;
   }
   let rec = null;
-  btn.addEventListener("click", () => {
-    if (rec) { rec.stop(); return; }
+  let wanted = false;
+  const start = () => {
     rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = "en-US";
+    rec.lang = navigator.language || "en-US";
     rec.onresult = (ev) => {
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i];
         if (r.isFinal) {
           $("text").value = "";
-          api("/api/utterance", { speaker: $("speaker").value, text: r[0].transcript });
+          if (r[0].transcript.trim()) api("/api/utterance", { speaker: $("speaker").value, text: r[0].transcript }).catch(() => {});
         } else {
           $("text").value = r[0].transcript;
         }
       }
     };
-    rec.onend = () => { rec = null; btn.classList.remove("listening"); };
+    // Browsers stop recognition after a pause; keep listening until turned off.
+    rec.onend = () => { if (wanted && state && !state.ended) start(); else { rec = null; btn.classList.remove("listening"); } };
+    rec.onerror = (ev) => { if (ev.error === "not-allowed") { wanted = false; alert("Microphone access was blocked."); } };
     rec.start();
     btn.classList.add("listening");
+  };
+  btn.addEventListener("click", () => {
+    wanted = !wanted;
+    if (wanted) start(); else if (rec) rec.stop();
   });
 })();
 
-fetch("/api/state").then((r) => r.json()).then((s) => {
-  state = s;
-  $("agent-pill").textContent = s.agent === "claude" ? "Agent: Claude" : "Agent: offline planner";
-  renderAll();
-  if (s.ended && s.summary) showSummary(s.summary);
+// --- data flow ----------------------------------------------------------
+function applyMessage(msg) {
+  if (msg.type === "reset") {
+    const wasLive = !!state;
+    state = msg.state;
+    if (!state && wasLive) { restoreSetup(); loadHistory(); refreshStatus(); }
+  } else if (!state) {
+    return;
+  } else if (msg.type === "utterance") {
+    state.transcript.push(msg.utterance);
+    flashSpeaker(msg.utterance.speaker);
+  } else if (msg.type === "feed") {
+    state.feed.push(msg.event);
+  } else if (msg.type === "feed_update") {
+    const i = state.feed.findIndex((f) => f.id === msg.event.id);
+    if (i >= 0) state.feed[i] = msg.event;
+  } else if (msg.type === "chat") {
+    state.chat.push(msg.message);
+  } else if (msg.type === "state") {
+    Object.assign(state, msg.state);
+    if (msg.state.summary && msg.state.ended) showSummary(msg.state.summary, state);
+  }
+  renderShell();
+  renderLive();
+}
+
+function connect() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onmessage = (ev) => applyMessage(JSON.parse(ev.data));
+  ws.onclose = () => setTimeout(connect, 1000);
+}
+
+async function refreshStatus() {
+  status = await (await fetch("/api/status")).json();
+  renderShell();
+  renderConnections();
+}
+
+(async () => {
+  await refreshStatus();
+  state = status.meeting;
+  restoreSetup();
+  loadHistory();
+  renderShell();
+  renderLive();
+  if (state && state.ended && state.summary) showSummary(state.summary, state);
   connect();
-});
+})();

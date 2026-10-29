@@ -13,7 +13,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from .meeting import Meeting, PendingApproval, Utterance
-from .workspace import new_id
+from .workspace import WorkspaceError, new_id
 
 TOOL_SCHEMAS: list[dict] = [
     {
@@ -140,7 +140,7 @@ class ToolBox:
             args = {k: v for k, v in args.items() if not k.startswith("_")}
         try:
             result = handler(**args)
-        except ToolError as e:
+        except (ToolError, WorkspaceError) as e:
             result = {"error": str(e)}
         except TypeError as e:
             result = {"error": f"bad arguments: {e}"}
@@ -227,10 +227,12 @@ class ToolBox:
                 "in_the_past": start < now,
                 "busy_attendees": busy,
                 "alternatives": [s.isoformat(timespec="minutes") for s in alternatives],
+                "calendars_not_visible": ws.calendars_not_visible(emails),
             }
         window = _PART_OF_DAY.get(part_of_day or "any")
         slots = ws.free_slots(emails, d, duration, not_before=now, window=window)
-        return {"day": d.isoformat(), "attendees": emails, "free_slots": [s.isoformat(timespec="minutes") for s in slots]}
+        return {"day": d.isoformat(), "attendees": emails, "free_slots": [s.isoformat(timespec="minutes") for s in slots],
+                "calendars_not_visible": ws.calendars_not_visible(emails)}
 
     def _tool_schedule_meeting(self, title: str, start: str, duration_minutes: int, attendees: list[str],
                                agenda: str = "", _approved: bool = False) -> dict:
@@ -254,14 +256,18 @@ class ToolBox:
                 external,
                 f"invite to '{title}' on {begin:%a %b %d, %H:%M}",
             )
-        event = ws.create_event(title, begin, duration, emails)
+        description = agenda or f"Scheduled live during “{self.meeting.title}” by Sidekick."
+        event = ws.create_event(title, begin, duration, emails, description)
+        subject = f"Invitation: {title} @ {begin:%a %b %d %H:%M}"
         body = (f"{title}\n{begin:%A, %B %d at %H:%M} ({duration_minutes} min)\n"
-                f"Attendees: {', '.join(emails)}\n\n{agenda or 'Scheduled live during ' + self.meeting.title}")
-        mail = ws.send_email(emails, f"Invitation: {title} @ {begin:%a %b %d %H:%M}", body, self.meeting.now())
+                f"Attendees: {', '.join(emails)}\n\n{description}")
+        # A real calendar emails the invitations itself; locally we record one.
+        mail = (ws.record_email(emails, subject, body, self.meeting.now(), delivered=True) if ws.delivers
+                else ws.send_email(emails, subject, body, self.meeting.now()))
         self._action(
-            f"Invite sent: {title}",
+            f"Invite sent: {title}" if ws.delivers else f"Invite recorded: {title}",
             f"{begin:%a %b %d, %H:%M}-{event.end:%H:%M} to {', '.join(emails)}",
-            event_id=event.id, email_id=mail.id,
+            event_id=event.id, email_id=mail.id, link=event.link,
         )
         return {"status": "scheduled", "event_id": event.id, "start": begin.isoformat(timespec="minutes"), "invited": emails}
 
@@ -291,8 +297,10 @@ class ToolBox:
         external = self._external(emails)
         if external and not _approved:
             return self._require_approval("send_email", {"to": emails, "subject": subject, "body": body}, external, f"email '{subject}'")
-        mail = self.meeting.workspace.send_email(emails, subject, body, self.meeting.now())
-        self._action(f"Email sent: {subject}", f"To {', '.join(emails)}", email_id=mail.id)
+        ws = self.meeting.workspace
+        mail = ws.send_email(emails, subject, body, self.meeting.now())
+        self._action(f"Email sent: {subject}" if ws.delivers else f"Email recorded: {subject}",
+                     f"To {', '.join(emails)}", email_id=mail.id)
         return {"status": "sent", "email_id": mail.id}
 
     def _tool_post_to_meeting_chat(self, message: str) -> dict:

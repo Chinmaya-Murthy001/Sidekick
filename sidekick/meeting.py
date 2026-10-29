@@ -4,6 +4,7 @@ action the agent has taken or is waiting to take."""
 from __future__ import annotations
 
 import asyncio
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable
@@ -57,7 +58,8 @@ class Meeting:
         clock: Callable[[], datetime] | None = None,
         contacts: list[Participant] | None = None,
     ):
-        self.id = new_id("mtg")
+        self.id = uuid.uuid4().hex[:12]
+        self.started_at: datetime | None = None  # set when Sidekick joins
         self.title = title
         self.participants = participants
         # People who are not on the call but can be emailed or invited.
@@ -151,6 +153,9 @@ class Meeting:
         d = {
             "id": self.id,
             "title": self.title,
+            "started_at": self.started_at.isoformat(timespec="minutes") if self.started_at else None,
+            "provider": ws.provider,
+            "delivers": ws.delivers,
             "paused": self.paused,
             "ended": self.ended,
             "now": self.now().isoformat(timespec="minutes"),

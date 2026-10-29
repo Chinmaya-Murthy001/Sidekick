@@ -36,6 +36,7 @@ Rules:
 - Never repeat an action already listed under "Actions so far".
 - Do not invent facts in emails; use what was said in the meeting.
 - Messages to people outside the team are held for human approval automatically. That is expected; do not retry.
+- If check_availability lists calendars_not_visible, you still may book, but say in the meeting chat whose calendar you could not check.
 - If nothing in the new utterance needs action, reply with exactly NONE and call no tools.
 - When you act, end with one short sentence saying what you did."""
 

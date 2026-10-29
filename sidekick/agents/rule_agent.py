@@ -130,7 +130,10 @@ class RuleAgent:
             "duration_minutes": duration, "attendees": attendees,
         })
         if result.get("status") == "scheduled":
-            tools.execute("post_to_meeting_chat", {"message": f"Booked '{title}' for {start:%A %H:%M}. Invites are out."})
+            hidden = check.get("calendars_not_visible") or []
+            note = f" I couldn't see {', '.join(hidden)}'s calendar, so please check it works for them." if hidden else ""
+            sent = "Invites are out." if meeting.workspace.delivers else "Invite recorded (local mode, not sent)."
+            tools.execute("post_to_meeting_chat", {"message": f"Booked '{title}' for {start:%A %H:%M}. {sent}{note}"})
         return "error" not in result
 
     # --- tasks ---------------------------------------------------------

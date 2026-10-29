@@ -3,5 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .env
+# local data: Google token, client secret, meeting archive
+data/
 *.log
 ~$*

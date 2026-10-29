@@ -138,6 +138,39 @@ h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: .04e
 .list.chat li { font-size: 13px; }
 .empty { color: var(--muted); font-style: italic; }
 
+[hidden] { display: none !important; }
+button.small { padding: 4px 10px; font-size: 13px; }
+button.link { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+button.link:hover { color: var(--ink); }
+
+.setup { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; margin-bottom: 14px; }
+.field input, .person input, .search {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; font-weight: 400; min-width: 0;
+}
+.people-head { display: flex; flex-direction: column; gap: 2px; font-weight: 600; margin-bottom: 8px; }
+.people-head .hint { font-weight: 400; }
+.people { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.person { display: grid; grid-template-columns: 1fr 1.4fr auto auto; gap: 6px; align-items: center; }
+.person label { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.person .remove { border: 0; background: none; color: var(--muted); padding: 4px 6px; }
+.contacts { margin: 10px 0 4px; }
+.contacts summary { cursor: pointer; color: var(--muted); margin-bottom: 8px; }
+.start-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.error { color: var(--bad); margin: 8px 0 0; }
+.search { width: 220px; max-width: 50%; }
+.conn { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.conn .ok { color: var(--ok); font-weight: 600; }
+.conn .off { color: var(--muted); }
+.demo-link { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.banner { grid-column: 1 / -1; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+.history-item { cursor: pointer; }
+.history-item:hover .main { color: var(--accent); }
+
+@media (max-width: 700px) {
+  .person { grid-template-columns: 1fr 1fr; }
+}
+
 dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: var(--ink); max-width: 640px; width: 92vw; }
 dialog pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--bg); padding: 12px; border-radius: 8px; max-height: 60vh; overflow: auto; }
 

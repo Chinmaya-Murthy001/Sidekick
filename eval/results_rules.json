@@ -15,7 +15,7 @@
       "pass": true,
       "actual": "booked Thu 09:30 (4 people)",
       "problems": [],
-      "ms": 2.6
+      "ms": 2.4
     },
     {
       "id": "T2",
@@ -127,7 +127,7 @@
       "pass": true,
       "actual": "booked Thu 09:30 (4 people)",
       "problems": [],
-      "ms": 0.5
+      "ms": 0.6
     },
     {
       "id": "T13",
