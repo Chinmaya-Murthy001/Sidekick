@@ -43,7 +43,7 @@ Every meeting (transcript, actions, tasks, summary) is saved to a local SQLite a
 Requires Python 3.10+.
 
 ```bash
-python -m venv .venv
+py -3.12 -m venv .venv   # needs Python 3.10+; plain "python" here is 3.6
 .venv\Scripts\activate          # Windows  (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt
 python -m sidekick.server

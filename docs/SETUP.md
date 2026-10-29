@@ -18,7 +18,7 @@ In a terminal:
 
 ```bash
 cd C:\R-D\Sidekick
-python -m venv .venv
+py -3.12 -m venv .venv   # needs Python 3.10+; plain "python" here is 3.6
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
