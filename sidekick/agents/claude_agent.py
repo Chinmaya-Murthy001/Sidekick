@@ -40,6 +40,33 @@ Rules:
 - If nothing in the new utterance needs action, reply with exactly NONE and call no tools.
 - When you act, end with one short sentence saying what you did."""
 
+SUMMARY_PROMPT = ("Write a concise meeting recap email body in plain text: 2-sentence overview, then Decisions, "
+                  "Action items (owner, due), Meetings scheduled, Open questions. Use only the facts given.")
+
+
+def meeting_context(meeting: Meeting, u: Utterance) -> str:
+    """What the agent sees for one new utterance: people, time, actions so far, transcript."""
+    ws = meeting.workspace
+    people = "\n".join(
+        f"- {p.name} <{p.email}> ({'team' if ws.is_internal(p.email) else 'external'})" for p in meeting.participants
+    )
+    contacts = "\n".join(
+        f"- {p.name} <{p.email}> ({'team' if ws.is_internal(p.email) else 'external'})" for p in meeting.contacts
+    ) or "- none"
+    done = [f"- {f.title}: {f.detail}" for f in meeting.feed if f.kind in {"action", "approval"}]
+    return (
+        f"Meeting: {meeting.title}\n"
+        f"Current time: {meeting.now():%A %Y-%m-%d %H:%M}\n\n"
+        f"On the call:\n{people}\n\nOther known contacts:\n{contacts}\n\n"
+        f"Actions so far:\n{chr(10).join(done) or '- none'}\n\n"
+        f"Transcript (most recent last):\n{meeting.recent_transcript(30)}\n\n"
+        f"New utterance to consider: {u.speaker}: \"{u.text}\""
+    )
+
+
+def summary_input(meeting: Meeting, facts: dict) -> str:
+    return json.dumps(facts, default=str) + "\n\nTranscript:\n" + meeting.recent_transcript(200)
+
 
 class ClaudeAgent:
     name = "claude"
@@ -49,27 +76,8 @@ class ClaudeAgent:
         self.effort = os.getenv("SIDEKICK_EFFORT", "low")
         self.client = client or anthropic.Anthropic()
 
-    def _context(self, meeting: Meeting, u: Utterance) -> str:
-        ws = meeting.workspace
-        people = "\n".join(
-            f"- {p.name} <{p.email}> ({'team' if ws.is_internal(p.email) else 'external'})" for p in meeting.participants
-        )
-        contacts = "\n".join(
-            f"- {p.name} <{p.email}> ({'team' if ws.is_internal(p.email) else 'external'})" for p in meeting.contacts
-        ) or "- none"
-        done = [f"- {f.title}: {f.detail}" for f in meeting.feed if f.kind in {"action", "approval"}]
-        return (
-            f"Meeting: {meeting.title}\n"
-            f"Current time: {meeting.now():%A %Y-%m-%d %H:%M}\n"
-            f"Team email domain: {ws.team_domain}\n\n"
-            f"On the call:\n{people}\n\nOther known contacts:\n{contacts}\n\n"
-            f"Actions so far:\n{chr(10).join(done) or '- none'}\n\n"
-            f"Transcript (most recent last):\n{meeting.recent_transcript(30)}\n\n"
-            f"New utterance to consider: {u.speaker}: \"{u.text}\""
-        )
-
     def handle(self, meeting: Meeting, tools: ToolBox, u: Utterance) -> list[str]:
-        messages: list[dict] = [{"role": "user", "content": self._context(meeting, u)}]
+        messages: list[dict] = [{"role": "user", "content": meeting_context(meeting, u)}]
         called: list[str] = []
         for _ in range(MAX_STEPS):
             response = self.client.beta.messages.create(
@@ -106,9 +114,8 @@ class ClaudeAgent:
         response = self.client.beta.messages.create(
             model=self.model,
             max_tokens=2048,
-            system="Write a concise meeting recap email body in plain text: 2-sentence overview, then Decisions, "
-                   "Action items (owner, due), Meetings scheduled, Open questions. Use only the facts given.",
-            messages=[{"role": "user", "content": json.dumps(facts, default=str) + "\n\nTranscript:\n" + meeting.recent_transcript(200)}],
+            system=SUMMARY_PROMPT,
+            messages=[{"role": "user", "content": summary_input(meeting, facts)}],
             output_config={"effort": "low"},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",

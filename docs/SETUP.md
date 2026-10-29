@@ -1,16 +1,20 @@
-# Full setup: keys, Google sign-in and the meeting bot
+# Full setup, step by step
 
-Sidekick runs without any of this, in local mode with the offline agent. Each step below switches on one real capability. Do them in any order.
+Sidekick works without any of this, in local mode with the offline planner. Each part below switches on one real capability.
 
-| What | Where it goes | What it turns on |
+| Part | Where it goes | What it turns on |
 |---|---|---|
-| Anthropic API key | `.env` → `ANTHROPIC_API_KEY` | Claude decides what to do, instead of the offline planner |
-| Google OAuth client | `data/google_client_secret.json`, then **Connect** in the app | Real free/busy, real Calendar invites, email through Gmail |
-| Recall.ai key + public URL | `.env` → `RECALL_API_KEY`, `RECALL_REGION`, `PUBLIC_URL` | Sidekick joins a Meet/Zoom/Teams link by itself and transcribes everyone |
+| 1. OpenRouter API key | `.env` → `OPENROUTER_API_KEY` | The AI agent (Claude Sonnet 5.5 by default) decides what to do and writes the summary |
+| 2. Google OAuth client | `data\google_client_secret.json`, then **Connect** in the app | Real free/busy, real calendar invites, email through Gmail |
+| 3. Recall.ai (optional) | `.env` → `RECALL_API_KEY`, `RECALL_REGION`, `PUBLIC_URL` | Sidekick joins a Meet, Zoom or Teams link by itself |
 
-Both `.env` and `data/` are excluded by `.gitignore`, so keys and tokens never reach GitHub.
+`.env` and `data\` are excluded by `.gitignore`: keys and tokens never go to GitHub. **Restart the server after every change.** The **Connections** card on the start screen shows what is on.
 
-## 0. Install and run
+---
+
+## Step 0: Install and run (once)
+
+In a terminal:
 
 ```bash
 cd C:\R-D\Sidekick
@@ -21,74 +25,120 @@ copy .env.example .env
 python -m sidekick.server
 ```
 
-Open http://localhost:8000. Restart the server after every change to `.env` or `data/`. The **Connections** card on the start screen shows what is active.
+Open http://localhost:8000. To stop the server, press `Ctrl+C`. To start it again later, run:
 
-## 1. Anthropic API key (Claude agent)
+```bash
+cd C:\R-D\Sidekick
+.venv\Scripts\activate
+python -m sidekick.server
+```
 
-1. Go to https://console.anthropic.com, then **Settings → API keys → Create key**.
-2. Add billing or credits under **Plans & billing**. Without them, requests fail.
-3. In `.env`:
+---
+
+## Step 1: OpenRouter API key (the AI agent)
+
+1. Go to https://openrouter.ai and sign in with the account your teacher's $50 credit is on.
+2. Check the balance under **Settings → Credits** (https://openrouter.ai/settings/credits).
+3. Open **Keys** (https://openrouter.ai/keys), click **Create key**, name it "Sidekick", and set a credit limit if you like (for example $10). Copy the key; it starts with `sk-or-`.
+4. Open `C:\R-D\Sidekick\.env` in a text editor and fill in:
    ```
-   ANTHROPIC_API_KEY=sk-ant-...
+   OPENROUTER_API_KEY=sk-or-...
+   OPENROUTER_MODEL=anthropic/claude-sonnet-5.5
    ```
-4. Restart. **AI agent** in Connections changes from *Offline* to *Claude*.
+5. Restart the server. Connections → **AI agent** shows **Sonnet 5.5 · OpenRouter**, and the status pill shows **OpenRouter**.
 
-Optional settings: `SIDEKICK_MODEL` (default `claude-opus-5-5`) and `SIDEKICK_EFFORT` (default `low`, for speed). To check the agent against the test cases, run `python -m eval.run_eval --agent claude`.
+**Cost:** Claude Sonnet 5.5 is $2 per million input tokens and $10 per million output tokens. One utterance costs roughly $0.005–0.01, so $50 covers thousands of utterances. To spend less, set `OPENROUTER_MODEL=anthropic/claude-haiku-5.5` ($0.10 / $0.50 per million tokens), which is cheaper but less careful. Spending is listed under **Activity** on OpenRouter.
 
-## 2. Google Calendar + Gmail (OAuth)
+**Check it works:** start a meeting, type "Let's meet tomorrow at 2pm", and an action should appear in Activity. You can also run the 16 test cases against the AI with:
+```bash
+python -m eval.run_eval --agent openrouter
+```
 
-In https://console.cloud.google.com:
+If it fails: the error shows in Activity, for example `OpenRouter 401` (wrong key) or `402` (no credits left).
 
-1. **Create a project** (top bar → project picker → New project), for example "Sidekick".
-2. **Enable the APIs.** Under **APIs & Services → Library**, enable **Google Calendar API** and **Gmail API**.
-3. **Consent screen.** Under **APIs & Services → OAuth consent screen** (or **Google Auth Platform → Branding / Audience**):
-   - User type: **External**, unless everyone uses one Google Workspace organisation, in which case use **Internal**.
-   - App name **Sidekick**, plus your support email and developer email.
-   - **Data access / Scopes:** add `.../auth/calendar.events`, `.../auth/calendar.freebusy`, `.../auth/gmail.send`, `openid` and `.../auth/userinfo.email`.
-   - **Audience / Test users:** add every Google account that will click Connect.
-4. **Client ID.** Under **APIs & Services → Credentials → Create credentials → OAuth client ID**:
-   - Application type: **Web application**.
-   - **Authorized redirect URI:** `http://localhost:8000/auth/google/callback`. It must match exactly; if you change `PORT`, change the port here too.
-5. **Download JSON**, then save it as `C:\R-D\Sidekick\data\google_client_secret.json`. Create the `data` folder if it doesn't exist. To keep the file elsewhere, set `GOOGLE_CLIENT_SECRET_FILE` in `.env` instead.
-6. Restart, then go to **Connections → Google → Connect** and sign in.
-   - Google warns that the app isn't verified, because it's in testing. Click **Advanced → Go to Sidekick**.
-   - Approve the calendar and Gmail permissions.
-7. Connections shows **Google: On** and the status pill shows **Google**. Invites and emails are now really sent.
+---
 
-Things to know:
-- **The token lives in `data/google_token.json`.** **Disconnect** deletes it.
-- **Apps in "Testing" get refresh tokens that expire after 7 days.** Click Connect again when that happens, or publish the app (Google reviews apps that send Gmail).
-- **School or work accounts may block unverified apps.** If Connect is refused with an admin error, use a personal Gmail account or ask the admin to allow the app.
-- **Free/busy is only visible for calendars your account can see.** For other people, Sidekick still books but says in the meeting chat that it couldn't check their calendar.
+## Step 2: Google Calendar + Gmail (OAuth)
 
-## 3. Recall.ai meeting bot (join from a link)
+Everything below is at https://console.cloud.google.com, signed in with the Google account whose calendar and Gmail Sidekick should use.
 
-1. Sign up at https://www.recall.ai and create an **API key** in the dashboard. Note your **region**, which is part of your dashboard/API address (for example `us-east-1`, `us-west-2`, `eu-central-1`, `ap-northeast-1`).
-2. Recall must be able to reach your server to send transcripts, so expose it with a tunnel:
+**2a. Create a project**
+1. Top bar → project picker → **New project** → name it "Sidekick" → **Create**, then select it.
+
+**2b. Turn on the two APIs**
+1. Menu → **APIs & Services → Library**.
+2. Search **Google Calendar API** → **Enable**.
+3. Search **Gmail API** → **Enable**.
+
+**2c. Consent screen.** This may be called **Google Auth Platform** in the menu.
+1. **APIs & Services → OAuth consent screen** → **Get started**.
+2. App name **Sidekick**, then your email as the support email → Next.
+3. Audience: **External** → Next. Contact email: yours → Next → agree → **Create**.
+4. **Data access → Add or remove scopes**, tick or paste these, then **Update → Save**:
+   - `https://www.googleapis.com/auth/calendar.events`
+   - `https://www.googleapis.com/auth/calendar.freebusy`
+   - `https://www.googleapis.com/auth/gmail.send`
+   - `openid`
+   - `https://www.googleapis.com/auth/userinfo.email`
+5. **Audience → Test users → Add users**: add your own Gmail and anyone else who will click Connect → **Save**.
+
+**2d. Create the OAuth client**
+1. **APIs & Services → Credentials → Create credentials → OAuth client ID** (on newer consoles: **Clients → Create client**).
+2. Application type: **Web application**. Name: "Sidekick local".
+3. **Authorized redirect URIs → Add URI**: `http://localhost:8000/auth/google/callback`. Type it exactly: `http`, not https, and no slash at the end.
+4. **Create**, then **Download JSON**.
+
+**2e. Give the file to Sidekick**
+1. Create the folder `C:\R-D\Sidekick\data` if it doesn't exist.
+2. Rename the downloaded file to `google_client_secret.json` and move it there, so the path is `C:\R-D\Sidekick\data\google_client_secret.json`.
+3. Restart the server.
+
+**2f. Connect**
+1. Start screen → Connections → **Google → Connect**.
+2. Choose your account. Google says "Google hasn't verified this app", because it's in testing. Click **Advanced → Go to Sidekick (unsafe)**. It's your own app.
+3. Allow the calendar and Gmail permissions, and you're back in Sidekick with **Google: On**.
+
+From now on, booked meetings appear in Google Calendar and Google emails the invitations itself. Approved emails and the end-of-call summary are sent from your Gmail.
+
+Good to know:
+- **While the app is in "Testing", the sign-in expires after 7 days.** Click **Connect** again.
+- **School or work accounts (umb.edu) may block unverified apps.** If you get an admin error, use a personal Gmail account.
+- **Free/busy is only visible for calendars your account can see.** For other people, Sidekick books anyway and says so in the meeting chat.
+- **Disconnect** removes the saved token (`data\google_token.json`).
+
+---
+
+## Step 3 (optional): Recall.ai, so Sidekick joins a link by itself
+
+Skip this if you're fine opening the call yourself and using the page's 🎤 (Chrome or Edge).
+
+1. Sign up at https://www.recall.ai. In the dashboard, create an **API key**. Your **region** is in the dashboard address (for example `us-east-1`, `us-west-2`, `eu-central-1`, `ap-northeast-1`).
+2. Recall has to reach your computer, so install ngrok (https://ngrok.com/download), sign in, and run this in a second terminal:
    ```bash
    ngrok http 8000
    ```
-   Copy the `https://….ngrok-free.app` address it prints. Free ngrok addresses change every time you run it.
+   Copy the `https://….ngrok-free.app` address it prints. Leave that terminal open.
 3. In `.env`:
    ```
    RECALL_API_KEY=...
    RECALL_REGION=us-east-1
-   PUBLIC_URL=https://your-tunnel.ngrok-free.app
+   PUBLIC_URL=https://your-address.ngrok-free.app
    ```
-4. Restart. Connections shows **Meeting bot: On**.
-5. Paste a Meet, Zoom or Teams link when starting a meeting, or into the link box during one. The host may need to admit "Sidekick (AI assistant)". The bot leaves when you click **End call**.
+4. Restart. Connections → **Meeting bot: On**.
+5. Paste a Meet, Zoom or Teams link in **Link** when starting, or in the link box during the meeting. The bot asks to join, so admit "Sidekick (AI assistant)". It leaves when you click **End call**.
 
-Transcripts come from the meeting platform's own captions (`meeting_captions` in `sidekick/recall.py`). If no text arrives, turn captions on in the call. The webhook is protected by a secret token that's generated each time the server starts. To keep it fixed, set `RECALL_WEBHOOK_TOKEN`.
+Free ngrok addresses change every time ngrok restarts; update `PUBLIC_URL` and restart Sidekick. If no speech arrives, turn on captions in the call, because Recall reads the platform's captions.
 
-## Without a bot
+---
 
-Open the call in another tab and keep the Sidekick page open in **Chrome or Edge**. Pick who is speaking and press the 🎤 button. Allow microphone access when the browser asks.
+## Optional: Anthropic directly instead of OpenRouter
+
+Put `ANTHROPIC_API_KEY=sk-ant-...` in `.env`, from https://console.anthropic.com → API keys, and remove or blank `OPENROUTER_API_KEY`. If both are set, OpenRouter is used unless `SIDEKICK_AGENT=claude`.
 
 ## Checklist
 
-- [ ] `pip install -r requirements.txt` done, server starts on http://localhost:8000
-- [ ] `.env` created from `.env.example`
-- [ ] `ANTHROPIC_API_KEY` set → AI agent: Claude
-- [ ] Calendar + Gmail APIs enabled, consent screen with test users, Web OAuth client with the exact redirect URI
-- [ ] `data/google_client_secret.json` saved → Connect → Google: On
-- [ ] Optional: `RECALL_API_KEY`, `RECALL_REGION`, `PUBLIC_URL` (ngrok running) → Meeting bot: On
+- [ ] Step 0: server runs at http://localhost:8000, and `.env` exists
+- [ ] Step 1: `OPENROUTER_API_KEY` set → AI agent shows *Sonnet 5.5 · OpenRouter*
+- [ ] Step 2: both APIs enabled, consent screen with you as test user, Web client with the exact redirect URI
+- [ ] Step 2: `data\google_client_secret.json` saved → **Connect** → *Google: On*
+- [ ] Step 3 (optional): Recall key, region, ngrok running, `PUBLIC_URL` → *Meeting bot: On*

@@ -77,8 +77,9 @@ Free/busy is only visible for calendars your account can see (your own organisat
 
 | Variable | Effect |
 |---|---|
-| `ANTHROPIC_API_KEY` | Uses the Claude agent instead of the offline planner |
-| `SIDEKICK_AGENT` | `auto` (default), `claude` or `rules` |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | Runs the AI agent through OpenRouter (default model `anthropic/claude-sonnet-5.5`) |
+| `ANTHROPIC_API_KEY` | Or runs it with Anthropic directly |
+| `SIDEKICK_AGENT` | `auto` (default), `openrouter`, `claude` or `rules` |
 | `SIDEKICK_MODEL`, `SIDEKICK_EFFORT` | Claude model (default `claude-opus-5-5`) and effort (default `low`, for speed) |
 | `GOOGLE_CLIENT_SECRET_FILE` | A different path for the Google OAuth client file |
 | `RECALL_API_KEY`, `PUBLIC_URL` | Lets Sidekick send its own bot into a Meet link via Recall.ai. `PUBLIC_URL` must reach this server, for example through an ngrok tunnel |

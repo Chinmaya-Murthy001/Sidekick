@@ -48,7 +48,7 @@ function renderShell() {
   }
   if (status) {
     const agent = (live && status.meeting_agent) || status.agent;
-    $("agent-pill").textContent = agent === "claude" ? "Claude" : "Offline";
+    $("agent-pill").textContent = { claude: "Claude", openrouter: "OpenRouter" }[agent] || "Offline";
     $("google-pill").textContent = status.google.connected ? "Google" : "Local";
   }
 }
@@ -102,9 +102,9 @@ function renderConnections() {
     : g.configured
       ? `<a href="/auth/google/start"><button type="button" class="small">Connect</button></a>`
       : `<span class="off" title="Add data/google_client_secret.json (see README)">Not set up</span>`;
-  const agent = status.agent === "claude"
-    ? `<span class="ok">Claude</span>`
-    : `<span class="off" title="Set ANTHROPIC_API_KEY in .env to use Claude">Offline</span>`;
+  const agent = status.agent !== "rules"
+    ? `<span class="ok">${esc(status.agent_label)}</span>`
+    : `<span class="off" title="Set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) in .env">Offline</span>`;
   const bot = status.recall.ready
     ? `<span class="ok">On</span>`
     : `<span class="off" title="Set RECALL_API_KEY and PUBLIC_URL so Sidekick joins from a link">Off</span>`;

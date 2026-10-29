@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 from . import google_auth, recall  # noqa: E402
-from .agents import make_agent  # noqa: E402
+from .agents import agent_label, make_agent  # noqa: E402
 from .demo import DEMO_SCRIPT, build_demo_meeting  # noqa: E402
 from .meeting import Meeting  # noqa: E402
 from .session import SidekickSession, play_script  # noqa: E402
@@ -158,6 +158,7 @@ async def status() -> dict:
         "meeting": s.meeting.state_dict() if s else None,
         "meeting_agent": s.agent.name if s else None,
         "agent": agent.name,
+        "agent_label": agent_label(agent),
         "google": {"configured": google_auth.configured(), "connected": bool(loaded), "email": loaded[1] if loaded else None},
         "recall": {"enabled": recall.enabled(), "ready": recall.ready()},
     }
