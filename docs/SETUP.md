@@ -110,7 +110,13 @@ Good to know:
 
 ## Step 3 (optional): Recall.ai, so Sidekick joins a link by itself
 
-Skip this if you're fine opening the call yourself and using the page's 🎤 (Chrome or Edge).
+Skip this if you're fine opening the call yourself and using the page's 🎤.
+
+**Using Sidekick without Recall.ai**
+- Open http://localhost:8000 in **Chrome or Edge**. Other browsers, and app-embedded browsers such as the Claude desktop app's preview, block the microphone or have no live transcription.
+- Start the meeting, pick who is speaking, click 🎤 and allow the microphone. The line under the input shows "Listening as …", then your words as you speak. Each finished sentence appears in the transcript and goes to the AI.
+- The page only hears **your microphone**. Other people in the call are only picked up if their voices come out of your speakers, not headphones, and even then less reliably. Sentences are credited to whoever is selected in "Speaker". To capture everyone with their real names, use Recall.ai.
+- You can always type what was said instead of speaking.
 
 1. Sign up at https://www.recall.ai. In the dashboard, create an **API key**. Your **region** is in the dashboard address (for example `us-east-1`, `us-west-2`, `eu-central-1`, `ap-northeast-1`).
 2. Recall has to reach your computer, so install ngrok (https://ngrok.com/download), sign in, and run this in a second terminal:

@@ -391,39 +391,69 @@ $("feed").addEventListener("click", async (e) => {
 (function setupMic() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btn = $("btn-mic");
+  const status = $("mic-status");
+  const show = (text, kind = "") => { status.textContent = text; status.className = "mic-status " + kind; status.hidden = !text; };
+  // Errors that will not fix themselves by retrying.
+  const FATAL = {
+    "not-allowed": "Microphone blocked. Open http://localhost:8000 in Chrome or Edge and allow the microphone.",
+    "service-not-allowed": "Live transcription isn't available here. Open http://localhost:8000 in Chrome or Edge.",
+    "audio-capture": "No microphone found. Check that one is connected and allowed.",
+    "network": "Live transcription needs Chrome or Edge with an internet connection.",
+    "language-not-supported": "Your browser language isn't supported for live transcription.",
+  };
   if (!SR) {
-    btn.disabled = true;
-    btn.title = "Live transcription needs Chrome or Edge";
+    btn.addEventListener("click", () => show("Live transcription needs Chrome or Edge. You can still type what was said.", "bad"));
     return;
   }
   let rec = null;
   let wanted = false;
+  const stop = (message, kind) => {
+    wanted = false;
+    btn.classList.remove("listening");
+    show(message || "", kind);
+  };
   const start = () => {
     rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = navigator.language || "en-US";
+    rec.onstart = () => show(`Listening as ${$("speaker").value}…`, "on");
     rec.onresult = (ev) => {
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i];
+        const words = r[0].transcript.trim();
         if (r.isFinal) {
           $("text").value = "";
-          if (r[0].transcript.trim()) api("/api/utterance", { speaker: $("speaker").value, text: r[0].transcript }).catch(() => {});
-        } else {
-          $("text").value = r[0].transcript;
+          show(`Listening as ${$("speaker").value}…`, "on");
+          if (words) api("/api/utterance", { speaker: $("speaker").value, text: words }).catch((e) => show(e.message, "bad"));
+        } else if (words) {
+          $("text").value = words;
+          show(`Hearing: “${words}”`, "on");
         }
       }
     };
     // Browsers stop recognition after a pause; keep listening until turned off.
-    rec.onend = () => { if (wanted && state && !state.ended) start(); else { rec = null; btn.classList.remove("listening"); } };
-    rec.onerror = (ev) => { if (ev.error === "not-allowed") { wanted = false; alert("Microphone access was blocked."); } };
-    rec.start();
-    btn.classList.add("listening");
+    rec.onend = () => {
+      if (wanted && state && !state.ended) start();
+      else { rec = null; if (!wanted) btn.classList.remove("listening"); }
+    };
+    rec.onerror = (ev) => {
+      if (FATAL[ev.error]) stop(FATAL[ev.error], "bad");
+      // "no-speech" and "aborted" just mean silence; onend restarts listening.
+    };
+    try {
+      rec.start();
+      btn.classList.add("listening");
+    } catch (e) {
+      stop("Couldn't start the microphone: " + e.message, "bad");
+    }
   };
   btn.addEventListener("click", () => {
-    wanted = !wanted;
-    if (wanted) start(); else if (rec) rec.stop();
+    if (wanted) { wanted = false; if (rec) rec.stop(); show(""); btn.classList.remove("listening"); return; }
+    wanted = true;
+    start();
   });
+  $("speaker").addEventListener("change", () => { if (wanted) show(`Listening as ${$("speaker").value}…`, "on"); });
 })();
 
 // --- spatial motion on the start page (tilt, parallax, sheen, gaze) ------
