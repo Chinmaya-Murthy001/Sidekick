@@ -263,7 +263,7 @@ function renderTiles() {
   const speaking = new Set([...document.querySelectorAll(".av.speaking")].map((t) => t.dataset.name));
   $("tiles").innerHTML = state.participants.map(
     (p) => `<div class="av${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" style="--h:${hue(p.name)}" title="${esc(p.name)}">${esc(initials(p.name))}</div>`
-  ).join("") + `<div class="av bot" title="Sidekick (AI assistant)"></div>`;
+  ).join("") + `<div class="av bot" title="Sidekick (AI assistant)">${document.querySelector(".brand svg.logo").outerHTML}</div>`;
   $("chips").innerHTML = state.participants.map(
     (p) => `<span class="chip${p.internal ? "" : " ext"}${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" title="${p.internal ? "Team" : "External"} · ${esc(p.email)}">${esc(p.name)}</span>`
   ).join("");
@@ -424,6 +424,68 @@ $("feed").addEventListener("click", async (e) => {
     wanted = !wanted;
     if (wanted) start(); else if (rec) rec.stop();
   });
+})();
+
+// --- colour themes ------------------------------------------------------
+function setTheme(name) {
+  document.documentElement.dataset.theme = name;
+  try { localStorage.setItem("sidekick.theme", name); } catch {}
+  document.querySelectorAll(".swatch").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.theme === name)));
+}
+document.querySelectorAll(".swatch").forEach((b) => b.setAttribute("role", "radio"));
+$("themes").addEventListener("click", (e) => {
+  const b = e.target.closest(".swatch");
+  if (b) setTheme(b.dataset.theme);
+});
+setTheme(document.documentElement.dataset.theme || "midnight");
+
+// --- spatial motion on the start page (tilt, parallax, sheen, gaze) ------
+(function spatial() {
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fine = matchMedia("(pointer: fine)").matches;
+  if (calm || !fine) return;
+  const grid = document.querySelector(".setup-grid");
+  const scene = document.querySelector(".scene");
+  const gaze = $("gaze");
+  const target = { x: 0, y: 0, gx: -100, gy: -100 };
+  const cur = { x: 0, y: 0, gx: -100, gy: -100 };
+  const onSetup = () => !$("setup").hidden;
+
+  window.addEventListener("pointermove", (e) => {
+    target.x = e.clientX / innerWidth - 0.5;
+    target.y = e.clientY / innerHeight - 0.5;
+    target.gx = e.clientX;
+    target.gy = e.clientY;
+    gaze.classList.toggle("on", onSetup());
+    gaze.classList.toggle("hover", !!e.target.closest("button, a, input, select, summary, label"));
+    const panel = e.target.closest("#setup .panel");
+    if (panel) {
+      const r = panel.getBoundingClientRect();
+      panel.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      panel.style.setProperty("--my", `${e.clientY - r.top}px`);
+    }
+  });
+  document.addEventListener("pointerleave", () => gaze.classList.remove("on"));
+
+  (function frame() {
+    const k = 0.08; // easing: the windows drift after the pointer, they don't snap
+    cur.x += (target.x - cur.x) * k;
+    cur.y += (target.y - cur.y) * k;
+    cur.gx += (target.gx - cur.gx) * 0.25;
+    cur.gy += (target.gy - cur.gy) * 0.25;
+    if (onSetup()) {
+      grid.style.setProperty("--rx", `${(-cur.y * 5).toFixed(2)}deg`);
+      grid.style.setProperty("--ry", `${(cur.x * 7).toFixed(2)}deg`);
+      scene.style.setProperty("--px", `${(-cur.x * 30).toFixed(1)}px`);
+      scene.style.setProperty("--py", `${(-cur.y * 20).toFixed(1)}px`);
+    } else {
+      gaze.classList.remove("on");
+      scene.style.setProperty("--px", "0px");
+      scene.style.setProperty("--py", "0px");
+    }
+    gaze.style.transform = `translate(${cur.gx}px, ${cur.gy}px)`;
+    requestAnimationFrame(frame);
+  })();
 })();
 
 // --- data flow ----------------------------------------------------------

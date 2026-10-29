@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidekick</title>
   <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("sidekick.theme") || "midnight"; } catch (e) {}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
   <div class="scene" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
@@ -15,7 +16,7 @@
   <div class="shell">
     <header class="topbar">
       <div class="brand">
-        <img class="logo" src="/static/logo.svg" alt="">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect class="logo-bg" width="64" height="64" rx="18"/><path class="logo-fg" d="M18 20h28a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H30l-8 7v-7h-4a5 5 0 0 1-5-5V25a5 5 0 0 1 5-5Z"/><path class="logo-fg tick" d="m25 31.5 5 5 10-10"/></svg>
         <h1>Sidekick</h1>
       </div>
       <div class="seg" role="status">
@@ -33,7 +34,16 @@
 
     <!-- Setup -->
     <main id="setup" hidden>
-      <h2 class="display hero">Start a meeting</h2>
+      <div class="hero-row">
+        <h2 class="display hero">Start a meeting</h2>
+        <div class="themes" id="themes" role="radiogroup" aria-label="Colour theme">
+          <button type="button" class="swatch" data-theme="midnight" title="Midnight" aria-label="Midnight"></button>
+          <button type="button" class="swatch" data-theme="sand" title="Sand" aria-label="Sand"></button>
+          <button type="button" class="swatch" data-theme="sky" title="Sky" aria-label="Sky"></button>
+          <button type="button" class="swatch" data-theme="walnut" title="Walnut" aria-label="Walnut"></button>
+          <button type="button" class="swatch" data-theme="slate" title="Slate" aria-label="Slate"></button>
+        </div>
+      </div>
 
       <div class="setup-grid">
         <section class="panel">
@@ -72,6 +82,8 @@
           </section>
         </div>
       </div>
+
+      <div class="grabber" aria-hidden="true"><span></span><i></i></div>
 
       <p class="demo-link"><button type="button" id="btn-demo" class="link">Sample meeting</button></p>
     </main>
@@ -161,6 +173,8 @@
     <form method="dialog"><button class="accent">Close</button></form>
   </dialog>
 
-  <script src="/static/app.js?v=8"></script>
+  <div class="gaze" id="gaze" aria-hidden="true"></div>
+
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>
