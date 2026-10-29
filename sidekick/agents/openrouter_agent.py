@@ -33,23 +33,36 @@ class OpenRouterAgent:
     def __init__(self, model: str | None = None, api_key: str | None = None):
         self.model = model or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
         self.api_key = api_key or os.environ["OPENROUTER_API_KEY"]
+        # Meeting actions are simple; low reasoning effort keeps replies fast.
+        self.effort = os.getenv("SIDEKICK_EFFORT") or "low"
+
+    def _post(self, body: dict) -> httpx.Response:
+        """One request, retried once on a timeout or a temporary server error."""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            # Optional attribution headers OpenRouter shows in its dashboard.
+            "HTTP-Referer": os.getenv("PUBLIC_URL") or "http://localhost:8000",
+            "X-Title": "Sidekick",
+        }
+        for attempt in (1, 2):
+            try:
+                resp = httpx.post(API_URL, headers=headers, json=body, timeout=30)
+            except httpx.TransportError as e:
+                if attempt == 2:
+                    raise OpenRouterError(f"OpenRouter did not answer: {type(e).__name__}") from e
+                continue
+            if resp.status_code in (429, 500, 502, 503, 504) and attempt == 1:
+                continue
+            return resp
+        return resp
 
     def _chat(self, messages: list[dict], tools: bool = True, max_tokens: int = 2048) -> dict:
         # No temperature: current Claude models reject non-default sampling settings.
-        body = {"model": self.model, "messages": messages, "max_tokens": max_tokens}
+        body = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
+                "reasoning": {"effort": self.effort}}
         if tools:
             body["tools"] = OPENAI_TOOLS
-        resp = httpx.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                # Optional attribution headers OpenRouter shows in its dashboard.
-                "HTTP-Referer": os.getenv("PUBLIC_URL") or "http://localhost:8000",
-                "X-Title": "Sidekick",
-            },
-            json=body,
-            timeout=60,
-        )
+        resp = self._post(body)
         if resp.status_code >= 400:
             try:
                 detail = resp.json().get("error", {}).get("message", resp.text)

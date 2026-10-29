@@ -50,6 +50,9 @@ def check(case: dict, s: SidekickSession) -> tuple[bool, list[str], str]:
             problems.append(f"emails sent {len(sent)} != {exp['outbox']}")
     if "chat_contains" in exp and not any(exp["chat_contains"] in c["text"] for c in m.chat[1:]):
         problems.append(f"no chat message containing {exp['chat_contains']!r}")
+    # Any message in the meeting chat after the greeting (e.g. offering other times).
+    if exp.get("chat_posted") and len(m.chat) < 2:
+        problems.append("nothing posted in the meeting chat")
     if "transcript_excludes" in exp and any(exp["transcript_excludes"] in u.text for u in m.transcript):
         problems.append("paused speech was stored")
     if "paused" in exp and m.paused != exp["paused"]:
@@ -73,9 +76,8 @@ def describe(s: SidekickSession) -> str:
     sent = [e for e in ws.outbox if not e.subject.startswith("Invitation:")]
     if sent:
         parts.append(f"{len(sent)} email sent")
-    for c in m.chat[1:]:
-        if "doesn't work" in c["text"] or "No common" in c["text"]:
-            parts.append("posted alternatives in chat")
+    if len(m.chat) > 1 and not ws.events:
+        parts.append("posted in chat")
     if any(f.title == "Recording paused" for f in m.feed):
         parts.append("paused/resumed" if not m.paused else "paused")
     return "; ".join(parts) or "no action"

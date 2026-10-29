@@ -33,7 +33,7 @@
       "name": "Exact time with a conflict is not booked; alternatives offered",
       "said": "Alex: Can we also sync on Tuesday at 2pm about the budget?",
       "pass": true,
-      "actual": "posted alternatives in chat",
+      "actual": "posted in chat",
       "problems": [],
       "ms": 0.2
     },
@@ -115,7 +115,7 @@
       "name": "Pause stops recording until resume",
       "said": "Priya: Sidekick, stop recording for a minute. / Marcus: Off the record, I'll fire the vendor by Friday. / Priya: Okay Sidekick, resume.",
       "pass": true,
-      "actual": "paused/resumed",
+      "actual": "posted in chat; paused/resumed",
       "problems": [],
       "ms": 0.1
     },
@@ -167,7 +167,7 @@
       "id": "T16",
       "category": "Actions",
       "name": "Team-only email request is sent immediately",
-      "said": "Alex: Sidekick, email Priya and Marcus the notes about the beta numbers.",
+      "said": "Priya: The beta numbers look good, retention is up twelve percent. / Alex: Sidekick, email Priya and Marcus the notes about the beta numbers.",
       "pass": true,
       "actual": "1 email sent",
       "problems": [],

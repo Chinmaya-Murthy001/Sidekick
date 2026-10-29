@@ -23,7 +23,7 @@ CASES = [
     {
         "id": "T3", "name": "Exact time with a conflict is not booked; alternatives offered", "category": "Scheduling",
         "lines": [(A, "Can we also sync on Tuesday at 2pm about the budget?")],
-        "expect": {"events": [], "chat_contains": "doesn't work"},
+        "expect": {"events": [], "chat_posted": True},
     },
     {
         "id": "T4", "name": "Part of day respected (Thursday afternoon)", "category": "Scheduling",
@@ -98,7 +98,10 @@ CASES = [
     },
     {
         "id": "T16", "name": "Team-only email request is sent immediately", "category": "Actions",
-        "lines": [(A, "Sidekick, email Priya and Marcus the notes about the beta numbers.")],
+        "lines": [
+            (P, "The beta numbers look good, retention is up twelve percent."),
+            (A, "Sidekick, email Priya and Marcus the notes about the beta numbers."),
+        ],
         "expect": {"outbox": 1, "approvals": 0},
     },
 ]

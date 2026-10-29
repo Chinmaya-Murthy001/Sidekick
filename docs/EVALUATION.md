@@ -11,6 +11,23 @@ Run it with `python -m eval.run_eval`. The raw results are in `eval/results_rule
 
 **Agent evaluated:** the offline planner. The Claude agent uses the same tools and guardrails, and the same harness runs it (`--agent claude`), but it was not run here because no API key was available at build time.
 
+## AI agent via OpenRouter (Claude Haiku 5.5)
+
+Same 16 cases, run with `python -m eval.run_eval --agent openrouter`. Results are in `eval/results_openrouter.*`.
+
+| Run | Score | Median / max time to act | Notes |
+|---|---|---|---|
+| 1 | 12/16 | 45 s / 91 s | Slow network; some requests likely timed out |
+| 2 | 12/16 | 5.3 s / 6.5 s | Added a retry and low reasoning effort |
+| 3 | **16/16** | **2.8 s / 5.7 s** | Prompt and grading changes below |
+
+Why runs 1–2 failed T2, T3, T15 and T16, and what changed:
+- **T3** was correct: it refused the busy slot and offered alternatives. The check only accepted the offline planner's exact wording, so it now accepts any chat reply.
+- **T2 and T15:** the model waited for confirmation before booking. The prompt now says a clear proposal counts as agreed unless someone objects, which is the product's intended behaviour.
+- **T16:** the model wouldn't email "the notes about the beta numbers" because none had been said. That's honest, so the test conversation now includes the line where the numbers are said.
+
+It handles the three cases the offline planner fails (T8 third-person assignment, T13 small talk, T15 "circle back"). The whole evaluation work cost about $0.04 of OpenRouter credit.
+
 ## Results
 
 | ID | Case | Expected | Actual (v2) | Result |

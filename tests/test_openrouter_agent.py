@@ -113,5 +113,6 @@ def test_agent_choice(monkeypatch, env, expected):
 
 def test_label(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
     assert agent_label(ora.OpenRouterAgent()) == "Sonnet 5.5 · OpenRouter"
     assert agent_label(RuleAgent()) == "Offline planner"
