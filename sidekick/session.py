@@ -35,13 +35,10 @@ class SidekickSession:
     def join(self) -> None:
         m = self.meeting
         m.started_at = m.now()
-        where = ("invites and emails go out through your Google account" if m.workspace.delivers
-                 else "local mode: invites and emails are recorded here, not sent")
-        m.log("joined", "Sidekick joined the call",
-              f"Agent: {self.agent.name}. Listening to {len(m.participants)} participants; {where}.")
-        m.post_chat("Hi, I'm Sidekick, an AI assistant. I'm transcribing this call and will schedule meetings, "
-                    "log tasks and decisions as you talk. Say \"Sidekick, stop recording\" to pause me. "
-                    "Nothing goes outside the team without the host's OK.")
+        m.log("joined", "Sidekick joined",
+              "Sending through Google" if m.workspace.delivers else "Local mode: nothing is sent")
+        m.post_chat("Hi, I'm Sidekick, an AI assistant taking notes and acting on what you agree. "
+                    "Say \"Sidekick, stop recording\" to pause me.")
         self._save()
 
     def hear(self, speaker: str, text: str) -> list[str]:
@@ -63,14 +60,14 @@ class SidekickSession:
                 if RESUME_RE.search(text):
                     m.paused = False
                     m.add_utterance(speaker, text)
-                    m.log("info", "Recording resumed", f"Resumed by {speaker}")
+                    m.log("info", "Recording resumed", f"By {speaker}")
                     m.post_chat("I'm listening again.")
                     return ["resume"]
                 return []  # nothing said while paused is stored or acted on
             u = m.add_utterance(speaker, text)
             if PAUSE_RE.search(text):
                 m.paused = True
-                m.log("warning", "Recording paused", f"Paused by {speaker}. Nothing is transcribed until someone says \"Sidekick, resume\".")
+                m.log("warning", "Recording paused", f"By {speaker}")
                 m.post_chat("Paused. I'm not recording until you say \"Sidekick, resume\".")
                 return ["pause"]
             self.tools.set_trigger(u)

@@ -3,117 +3,84 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sidekick · Live meeting agent</title>
+  <title>Sidekick</title>
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=7">
+  <link rel="stylesheet" href="/static/style.css?v=8">
 </head>
 <body>
   <div class="scene" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
 
-  <!-- Floating dock -->
-  <nav class="dock" aria-label="Quick actions">
-    <a class="dock-btn" href="#top" title="Top" aria-label="Scroll to top">
-      <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-    </a>
-    <a class="dock-btn setup-only" href="#history-card" title="Past meetings" aria-label="Past meetings">
-      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>
-    </a>
-    <a class="dock-btn setup-only" href="#connections-card" title="Connections" aria-label="Connections">
-      <svg viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8Z"/><path d="M12 18v4"/></svg>
-    </a>
-    <a class="dock-btn live-only" href="#activity" title="Live activity" aria-label="Live activity">
-      <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-    </a>
-    <a class="dock-btn live-only" href="#workspace" title="Tasks and calendar" aria-label="Tasks and calendar">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-    </a>
-  </nav>
-
-  <div class="shell" id="top">
+  <div class="shell">
     <header class="topbar">
       <div class="brand">
-        <span class="logo">sk</span>
-        <div class="brand-text">
-          <h1>Sidekick</h1>
-          <p class="sub" id="meeting-title">Live meeting agent</p>
-        </div>
+        <img class="logo" src="/static/logo.svg" alt="">
+        <h1>Sidekick</h1>
       </div>
       <div class="seg" role="status">
-        <span id="status-pill" class="seg-item">Not in a meeting</span>
-        <span id="agent-pill" class="seg-item">agent</span>
+        <span id="status-pill" class="seg-item">Ready</span>
+        <span id="agent-pill" class="seg-item"></span>
         <span id="google-pill" class="seg-item"></span>
       </div>
       <div class="controls" id="live-controls" hidden>
-        <button id="btn-end" class="cream">End call &amp; send summary</button>
+        <button id="btn-end" class="accent">End call</button>
         <button id="btn-close" class="circle" title="Leave" aria-label="Leave">
           <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
         </button>
       </div>
     </header>
 
-    <!-- Setup: shown when no meeting is running -->
+    <!-- Setup -->
     <main id="setup" hidden>
-      <section class="hero">
-        <h2 class="display">Meetings that<br>follow through</h2>
-        <p class="lede">Sidekick listens to the call, then books, assigns and emails while you talk.</p>
-      </section>
+      <h2 class="display hero">Start a meeting</h2>
 
       <div class="setup-grid">
-        <section class="panel setup-card">
-          <div class="panel-head"><h3>New meeting</h3><span class="hint">Sidekick joins as a visible participant</span></div>
+        <section class="panel">
           <form id="start-form">
-            <label class="field">Meeting name
-              <input id="m-title" required maxlength="120" placeholder="e.g. Weekly product sync">
+            <label class="field">Name
+              <input id="m-title" required maxlength="120" placeholder="Weekly sync">
             </label>
-            <label class="field">Meeting link <span class="hint">optional · Google Meet, Zoom or Teams</span>
-              <input id="m-link" type="url" placeholder="https://meet.google.com/abc-defg-hij">
-              <span class="hint" id="link-hint"></span>
+            <label class="field">Link <span class="hint">optional</span>
+              <input id="m-link" type="url" placeholder="Meet, Zoom or Teams link">
             </label>
-            <div class="people-head">
-              <span>People on the call</span>
-              <span class="hint">Tick “team” for teammates. Anything sent to others waits for your OK.</span>
-            </div>
+            <div class="field-label">People <span class="hint">tick your team</span></div>
             <div id="people" class="people"></div>
-            <button type="button" id="add-person" class="pill small">+ Add person</button>
+            <button type="button" id="add-person" class="pill small">+ Person</button>
             <details class="contacts">
-              <summary>Others Sidekick may email or invite</summary>
+              <summary>Other contacts</summary>
               <div id="contacts" class="people"></div>
-              <button type="button" id="add-contact" class="pill small">+ Add contact</button>
+              <button type="button" id="add-contact" class="pill small">+ Contact</button>
             </details>
             <p id="start-error" class="error" hidden></p>
             <div class="start-row">
-              <button type="submit" class="cream big">Start meeting</button>
-              <span id="mode-note" class="hint"></span>
+              <button type="submit" class="accent big">Start</button>
             </div>
           </form>
         </section>
 
         <div class="side-col">
-          <section class="panel" id="connections-card">
+          <section class="panel">
             <div class="panel-head"><h3>Connections</h3></div>
             <ul class="list" id="connections"></ul>
           </section>
-          <section class="panel" id="history-card">
-            <div class="panel-head"><h3>Past meetings</h3>
-              <input id="search" class="search" placeholder="Search…" aria-label="Search past meetings">
+          <section class="panel">
+            <div class="panel-head"><h3>History</h3>
+              <input id="search" class="search" placeholder="Search" aria-label="Search past meetings">
             </div>
             <ul class="list" id="history"></ul>
           </section>
         </div>
       </div>
 
-      <p class="demo-link">Just looking? <button type="button" id="btn-demo" class="link">Play a sample meeting</button></p>
+      <p class="demo-link"><button type="button" id="btn-demo" class="link">Sample meeting</button></p>
     </main>
 
     <!-- Live meeting -->
     <main id="live" hidden>
       <section class="live-hero">
-        <div class="hero-title">
-          <h2 class="display" id="hero-title">Meeting</h2>
-          <p class="lede" id="hero-sub"></p>
-        </div>
-        <div class="ring" title="Minutes in this meeting">
+        <h2 class="display" id="hero-title">Meeting</h2>
+        <div class="ring" title="Minutes">
           <svg viewBox="0 0 100 100" aria-hidden="true">
             <circle class="ring-track" cx="50" cy="50" r="42"/>
             <circle class="ring-arc" id="ring-arc" cx="50" cy="50" r="42"/>
@@ -121,9 +88,9 @@
           <span class="ring-num"><b id="ring-num">0</b><sup>min</sup></span>
         </div>
         <div class="stats">
-          <div class="stat"><span class="stat-label">Action items</span><span class="stat-num" id="stat-tasks">0</span></div>
-          <div class="stat"><span class="stat-label">Meetings booked</span><span class="stat-num" id="stat-events">0</span></div>
-          <div class="stat"><span class="stat-label">Awaiting your OK</span><span class="stat-num" id="stat-pending">0</span></div>
+          <div class="stat"><span class="stat-label">Tasks</span><span class="stat-num" id="stat-tasks">0</span></div>
+          <div class="stat"><span class="stat-label">Booked</span><span class="stat-num" id="stat-events">0</span></div>
+          <div class="stat"><span class="stat-label">To approve</span><span class="stat-num" id="stat-pending">0</span></div>
         </div>
       </section>
 
@@ -131,46 +98,41 @@
         <div id="chips" class="chips"></div>
         <div id="call-bar" class="call-bar">
           <div id="call-linked" hidden>
-            <a id="call-open" class="pill cream-pill" target="_blank" rel="noopener"><span id="call-platform"></span> ↗</a>
+            <a id="call-open" class="pill accent-pill" target="_blank" rel="noopener"><span id="call-platform"></span> ↗</a>
           </div>
           <form id="call-link-form" class="call-link-form">
-            <input id="call-link" type="url" placeholder="Paste a meeting link" aria-label="Meeting link">
-            <button type="submit" class="circle" title="Use this link" aria-label="Use this link">
+            <input id="call-link" type="url" placeholder="Meeting link" aria-label="Meeting link">
+            <button type="submit" class="circle" title="Use link" aria-label="Use link">
               <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
           </form>
         </div>
       </div>
       <p id="call-link-error" class="error" hidden></p>
-      <p id="mode-banner" class="banner" hidden></p>
-      <p id="call-bot" class="banner subtle"></p>
 
       <div class="live-grid">
         <section class="panel call">
-          <div class="panel-head">
-            <div class="who-row"><div id="tiles" class="avatars"></div></div>
-            <span class="hint">Sidekick is in the call</span>
-          </div>
+          <div class="panel-head"><div id="tiles" class="avatars"></div></div>
           <div id="transcript" class="transcript" aria-live="polite"></div>
           <form id="say" class="say">
-            <select id="speaker" aria-label="Who is speaking"></select>
-            <input id="text" autocomplete="off" placeholder="What was said, e.g. “Let’s meet Thursday afternoon”">
-            <button type="button" id="btn-mic" class="circle" title="Live transcription (Chrome/Edge)" aria-label="Microphone">
+            <select id="speaker" aria-label="Speaker"></select>
+            <input id="text" autocomplete="off" placeholder="Type or use the mic">
+            <button type="button" id="btn-mic" class="circle" title="Microphone" aria-label="Microphone">
               <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
             </button>
-            <button type="submit" class="circle cream-circle" title="Add" aria-label="Add">
+            <button type="submit" class="circle accent-circle" title="Add" aria-label="Add">
               <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
           </form>
         </section>
 
-        <section class="panel feed-card" id="activity">
-          <div class="panel-head"><h3>Live activity</h3><span class="hint">Every action, as it happens</span></div>
+        <section class="panel feed-card">
+          <div class="panel-head"><h3>Activity</h3></div>
           <ol id="feed" class="feed"></ol>
         </section>
       </div>
 
-      <div class="work-grid" id="workspace">
+      <div class="work-grid">
         <section class="tile-card">
           <div class="panel-head"><h3>Calendar</h3><span class="count" id="events-count"></span></div>
           <ul id="events" class="list"></ul>
@@ -182,11 +144,11 @@
         <section class="tile-card">
           <div class="panel-head"><h3>Decisions</h3></div>
           <ul id="decisions" class="list"></ul>
-          <div class="panel-head sub-head"><h3>Meeting chat</h3></div>
+          <div class="panel-head sub-head"><h3>Chat</h3></div>
           <ul id="chat" class="list chat"></ul>
         </section>
         <section class="tile-card">
-          <div class="panel-head"><h3>Outbox</h3><span class="count" id="outbox-hint">Emails</span></div>
+          <div class="panel-head"><h3>Outbox</h3><span class="count" id="outbox-hint"></span></div>
           <ul id="outbox" class="list"></ul>
         </section>
       </div>
@@ -194,11 +156,11 @@
   </div>
 
   <dialog id="summary-dialog">
-    <h2 id="summary-title">Meeting summary</h2>
+    <h2 id="summary-title">Summary</h2>
     <pre id="summary-text"></pre>
-    <form method="dialog"><button class="cream">Close</button></form>
+    <form method="dialog"><button class="accent">Close</button></form>
   </dialog>
 
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

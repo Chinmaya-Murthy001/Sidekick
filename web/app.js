@@ -32,12 +32,10 @@ function renderShell() {
   const pill = $("status-pill");
   if (!live) {
     pill.className = "seg-item on";
-    pill.textContent = "Not in a meeting";
-    $("meeting-title").textContent = "Live meeting agent";
+    pill.textContent = "Ready";
   } else {
     pill.className = "seg-item on " + (state.ended ? "" : state.paused ? "paused" : "live");
-    pill.textContent = state.ended ? "Call ended" : state.paused ? "Paused · not recording" : "Live";
-    $("meeting-title").textContent = state.participants.length + " people · " + (state.delivers ? "Google" : "local mode");
+    pill.textContent = state.ended ? "Ended" : state.paused ? "Paused" : "Live";
     $("btn-end").hidden = state.ended;
     const close = $("btn-close");
     if (state.ended) {
@@ -50,8 +48,8 @@ function renderShell() {
   }
   if (status) {
     const agent = (live && status.meeting_agent) || status.agent;
-    $("agent-pill").textContent = agent === "claude" ? "Claude agent" : "Offline agent";
-    $("google-pill").textContent = status.google.connected ? (status.google.email || "Google connected") : "Local mode";
+    $("agent-pill").textContent = agent === "claude" ? "Claude" : "Offline";
+    $("google-pill").textContent = status.google.connected ? "Google" : "Local";
   }
 }
 
@@ -98,29 +96,24 @@ function restoreSetup() {
 function renderConnections() {
   if (!status) return;
   const g = status.google;
+  // Short states; the setup steps live in the README and in the tooltips.
   const google = g.connected
-    ? `<span class="ok">Connected as ${esc(g.email || "your account")}</span> <button class="link" id="g-off">Disconnect</button>`
+    ? `<span class="ok" title="${esc(g.email || "")}">On</span> <button class="link" id="g-off">Disconnect</button>`
     : g.configured
-      ? `<span class="off">Not connected</span> <a href="/auth/google/start"><button type="button" class="small">Connect Google</button></a>`
-      : `<span class="off">Not set up: add data/google_client_secret.json (see README)</span>`;
+      ? `<a href="/auth/google/start"><button type="button" class="small">Connect</button></a>`
+      : `<span class="off" title="Add data/google_client_secret.json (see README)">Not set up</span>`;
   const agent = status.agent === "claude"
     ? `<span class="ok">Claude</span>`
-    : `<span class="off">Offline planner. Set ANTHROPIC_API_KEY in .env for Claude</span>`;
+    : `<span class="off" title="Set ANTHROPIC_API_KEY in .env to use Claude">Offline</span>`;
   const bot = status.recall.ready
-    ? `<span class="ok">Recall.ai ready: Sidekick joins from a link</span>`
-    : `<span class="off">Optional: RECALL_API_KEY and PUBLIC_URL let Sidekick join from a link by itself</span>`;
-  $("link-hint").textContent = status.recall.ready
-    ? "Sidekick will join the call itself. The host may need to admit it."
-    : "Sidekick can’t join by itself yet. You’ll get a button to open the call; Sidekick listens through this page’s 🎤.";
+    ? `<span class="ok">On</span>`
+    : `<span class="off" title="Set RECALL_API_KEY and PUBLIC_URL so Sidekick joins from a link">Off</span>`;
   $("connections").innerHTML = `
-    <li class="conn"><div><div class="main">Google Calendar &amp; Gmail</div><div class="small">Real free/busy, real invites and emails</div></div><div>${google}</div></li>
-    <li class="conn"><div><div class="main">AI agent</div><div class="small">Decides what to do as people talk</div></div><div>${agent}</div></li>
-    <li class="conn"><div><div class="main">Meeting bot</div><div class="small">Without it, use this page’s microphone during the call</div></div><div>${bot}</div></li>`;
+    <li class="conn"><span class="main">Google</span>${google}</li>
+    <li class="conn"><span class="main">AI agent</span>${agent}</li>
+    <li class="conn"><span class="main">Meeting bot</span>${bot}</li>`;
   const off = $("g-off");
   if (off) off.onclick = async () => { await api("/auth/google/disconnect"); await refreshStatus(); };
-  $("mode-note").textContent = g.connected
-    ? "Invites and emails will be sent from your Google account."
-    : "Local mode: invites and emails are recorded here, not sent.";
 }
 
 async function loadHistory(q = "") {
@@ -128,8 +121,8 @@ async function loadHistory(q = "") {
   const items = await res.json();
   $("history").innerHTML = items.map((m) => `<li class="history-item" data-id="${esc(m.id)}">
       <div class="main">${esc(m.title)}</div>
-      <div class="small">${m.started_at ? dayTime(m.started_at) : ""} · ${m.tasks} tasks · ${m.events} meetings booked · ${m.decisions} decisions${m.ended ? "" : " · not finished"}</div>
-    </li>`).join("") || `<li class="empty">${q ? "No meetings mention that" : "No meetings yet"}</li>`;
+      <div class="small">${m.started_at ? dayTime(m.started_at) : ""} · ${m.tasks} tasks</div>
+    </li>`).join("") || `<li class="empty">${q ? "No matches" : "None yet"}</li>`;
 }
 
 $("history").addEventListener("click", async (e) => {
@@ -176,10 +169,7 @@ $("btn-demo").onclick = async () => {
 // --- live meeting -------------------------------------------------------
 function renderLive() {
   if (!state) return;
-  const banner = $("mode-banner");
-  banner.hidden = state.delivers;
-  banner.textContent = "Local mode · invites and emails are recorded here, not sent. Connect Google on the start screen to send them.";
-  $("outbox-hint").textContent = state.delivers ? "Sent via Google" : "Recorded, not sent";
+  $("outbox-hint").textContent = state.delivers ? "Sent" : "Local";
   renderHero();
   renderCallBar();
   renderTiles();
@@ -210,9 +200,6 @@ function setStat(id, value) {
 }
 function renderHero() {
   $("hero-title").textContent = state.title;
-  const when = state.started_at ? new Date(state.started_at) : null;
-  $("hero-sub").textContent = (when ? "Started " + when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " · " : "") +
-    (state.ended ? "Call ended" : "Sidekick is listening and acting as you talk");
   setStat("stat-tasks", state.tasks.length);
   setStat("stat-events", state.events.length);
   setStat("stat-pending", state.pending.length);
@@ -239,10 +226,10 @@ function renderCallBar() {
   $("call-link-form").hidden = state.ended || ["joining", "in_call"].includes(state.bot);
   $("call-link").placeholder = has ? "Use a different link" : "Paste a meeting link";
   if (has) {
-    $("call-platform").textContent = "Open " + platformOf(state.link);
+    $("call-platform").textContent = platformOf(state.link);
     $("call-open").href = state.link;
   }
-  $("call-bot").textContent = state.ended ? "" : (has || state.bot !== "none" ? BOT_TEXT[state.bot] : BOT_TEXT.none) || "";
+  $("call-open").title = BOT_TEXT[state.bot] || "";
 }
 
 $("call-link-form").addEventListener("submit", async (e) => {
@@ -276,7 +263,7 @@ function renderTiles() {
   const speaking = new Set([...document.querySelectorAll(".av.speaking")].map((t) => t.dataset.name));
   $("tiles").innerHTML = state.participants.map(
     (p) => `<div class="av${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" style="--h:${hue(p.name)}" title="${esc(p.name)}">${esc(initials(p.name))}</div>`
-  ).join("") + `<div class="av bot" title="Sidekick (AI assistant)">sk</div>`;
+  ).join("") + `<div class="av bot" title="Sidekick (AI assistant)"></div>`;
   $("chips").innerHTML = state.participants.map(
     (p) => `<span class="chip${p.internal ? "" : " ext"}${speaking.has(p.name) ? " speaking" : ""}" data-name="${esc(p.name)}" title="${p.internal ? "Team" : "External"} · ${esc(p.email)}">${esc(p.name)}</span>`
   ).join("");
@@ -296,8 +283,8 @@ function renderTranscript() {
     const acted = actedQuotes.has(`${u.speaker}: "${u.text}"`);
     return `<div class="line${acted ? " acted" : ""}${isNew(u.id) ? " enter" : ""}"><span class="t">${hhmm(u.at)}</span><span class="who">${esc(u.speaker)}</span><span class="txt">${esc(u.text)}</span></div>`;
   });
-  if (state.paused) lines.push(`<div class="line system">Recording paused. Nothing is transcribed until someone says “Sidekick, resume”.</div>`);
-  box.innerHTML = lines.join("") || `<div class="line system">Waiting for someone to speak. Pick who is talking, then use the 🎤 microphone or type what was said.</div>`;
+  if (state.paused) lines.push(`<div class="line system">Paused. Say “Sidekick, resume”.</div>`);
+  box.innerHTML = lines.join("") || `<div class="line system">Waiting for someone to speak</div>`;
   box.scrollTop = box.scrollHeight;
 }
 
@@ -305,12 +292,12 @@ function renderFeed() {
   const items = [...(state.feed || [])].reverse().map((f) => {
     const pending = f.kind === "approval" && f.status === "pending";
     const lat = f.latency_ms != null
-      ? `<span class="lat">${f.latency_ms < 1000 ? Math.max(1, f.latency_ms) + " ms" : (f.latency_ms / 1000).toFixed(1) + " s"} after it was said</span>`
+      ? `<span class="lat">${f.latency_ms < 1000 ? Math.max(1, f.latency_ms) + " ms" : (f.latency_ms / 1000).toFixed(1) + " s"}</span>`
       : "";
     const badge = f.kind === "approval" ? `<span class="badge">${esc(f.status)}</span>` : "";
     const id = pending ? esc(f.data.approval_id) : "";
     const buttons = pending && !state.ended
-      ? `<div class="decide"><span class="ask">Send it?</span><span class="toggle">
+      ? `<div class="decide"><span class="ask">Send?</span><span class="toggle">
            <button data-reject="${id}" title="Reject" aria-label="Reject"><svg viewBox="0 0 24 24" data-reject="${id}"><path d="M6 6l12 12M18 6 6 18" data-reject="${id}"/></svg></button>
            <button class="yes" data-approve="${id}" title="Approve and send" aria-label="Approve and send"><svg viewBox="0 0 24 24" data-approve="${id}"><path d="m5 12 5 5L20 7" data-approve="${id}"/></svg></button>
          </span></div>`
@@ -321,7 +308,6 @@ function renderFeed() {
       <div class="title">${esc(f.title)}</div>
       <div class="meta"><span>${hhmm(f.at)}</span>${badge}${lat}</div>
       ${f.detail ? `<div class="detail">${esc(f.detail)}${link}</div>` : ""}
-      ${f.data && f.data.quote ? `<div class="quote">${esc(f.data.quote)}</div>` : ""}
       ${buttons}
     </li>`;
   });
@@ -332,17 +318,17 @@ function renderLists() {
   const empty = (msg) => `<li class="empty">${msg}</li>`;
   $("events").innerHTML =
     state.events.map((e) => `<li${isNew(e.id) ? ' class="enter"' : ""}><div class="main">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</div><div class="small">${dayTime(e.start)}–${hhmm(e.end)} · ${e.attendees.length} invited</div></li>`).join("") ||
-    empty("No meetings booked yet");
-  $("events-count").textContent = state.events.length ? `${state.events.length} booked` : "";
+    empty("—");
+  $("events-count").textContent = state.events.length || "";
   $("tasks").innerHTML =
     state.tasks.map((t) => `<li${isNew(t.id) ? ' class="enter"' : ""}><div class="main">${esc(t.description)}</div><div class="small">${esc(t.owner)}${t.due ? " · due " + esc(t.due) : ""}</div></li>`).join("") ||
-    empty("No action items yet");
-  $("tasks-count").textContent = state.tasks.length ? `${state.tasks.length} open` : "";
-  $("decisions").innerHTML = state.decisions.map((d) => `<li>${esc(d)}</li>`).join("") || empty("No decisions yet");
+    empty("—");
+  $("tasks-count").textContent = state.tasks.length || "";
+  $("decisions").innerHTML = state.decisions.map((d) => `<li>${esc(d)}</li>`).join("") || empty("—");
   $("outbox").innerHTML =
     state.outbox.map((m) => `<li${isNew(m.id) ? ' class="enter"' : ""}><div class="main">${esc(m.subject)}</div><div class="small">to ${esc(m.to.join(", "))} · ${hhmm(m.sent_at)}${m.delivered ? " · sent" : " · recorded"}</div></li>`).join("") ||
-    empty("Nothing yet");
-  $("chat").innerHTML = (state.chat || []).map((c) => `<li><b>Sidekick:</b> ${esc(c.text)}</li>`).join("") || empty("Quiet");
+    empty("—");
+  $("chat").innerHTML = (state.chat || []).map((c) => `<li><b>Sidekick:</b> ${esc(c.text)}</li>`).join("") || empty("—");
 }
 
 function flashSpeaker(name) {

@@ -125,9 +125,7 @@ async def attach_link(session: SidekickSession, url: str) -> None:
     m.link = url
     where = recall.platform(url)
     if not recall.ready():
-        m.log("info", f"{where} link saved",
-              "Sidekick can't join by itself yet (needs RECALL_API_KEY and PUBLIC_URL). "
-              "Open the call from the link above and keep this page's 🎤 on.", link=url)
+        m.log("info", f"{where} link saved", "Open the call and keep the mic on here", link=url)
         return
     m.bot = "joining"
     m.log("info", f"Sending Sidekick into the {where} call", "The host may need to admit “Sidekick (AI assistant)”.", link=url)

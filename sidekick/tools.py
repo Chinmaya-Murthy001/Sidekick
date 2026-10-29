@@ -195,7 +195,7 @@ class ToolBox:
         ev = self.meeting.log(
             "approval",
             f"Needs your OK: {summary}",
-            f"Goes outside the team to {', '.join(external)}. Approve or reject in the feed.",
+            f"To {', '.join(external)}",
             status="pending",
             approval_id=approval_id,
             quote=self._quote(),
