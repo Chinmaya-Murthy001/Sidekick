@@ -426,19 +426,6 @@ $("feed").addEventListener("click", async (e) => {
   });
 })();
 
-// --- colour themes ------------------------------------------------------
-function setTheme(name) {
-  document.documentElement.dataset.theme = name;
-  try { localStorage.setItem("sidekick.theme", name); } catch {}
-  document.querySelectorAll(".swatch").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.theme === name)));
-}
-document.querySelectorAll(".swatch").forEach((b) => b.setAttribute("role", "radio"));
-$("themes").addEventListener("click", (e) => {
-  const b = e.target.closest(".swatch");
-  if (b) setTheme(b.dataset.theme);
-});
-setTheme(document.documentElement.dataset.theme || "midnight");
-
 // --- spatial motion on the start page (tilt, parallax, sheen, gaze) ------
 (function spatial() {
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;

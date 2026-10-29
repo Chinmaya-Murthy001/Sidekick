@@ -59,6 +59,8 @@ Open http://localhost:8000.
 
 To see it without setting anything up, use **Play a sample meeting** at the bottom of the start screen. It plays a scripted meeting with a fictional team and a sandbox calendar.
 
+**Full setup for all keys and sign-ins: [docs/SETUP.md](docs/SETUP.md).**
+
 ### Connect Google Calendar and Gmail (one-time)
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Google Calendar API** and **Gmail API**.

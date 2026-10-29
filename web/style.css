@@ -1,4 +1,4 @@
-/* Sidekick — frosted glass over a midnight-teal backdrop, mint accents. */
+/* Sidekick — frosted glass over a grey-blue sky backdrop, blue accents. */
 
 :root {
   color-scheme: dark;
@@ -20,46 +20,14 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* ---------- themes ---------- */
-:root, [data-theme="midnight"] {
-  --scene-0: #050c10; --scene-1: #0c1c23; --scene-2: #08141a;
-  --blob-1: #14606a; --blob-2: #1e3f73; --blob-3: #0f4a3d; --blob-4: #2c8a7b;
-  --shell-a: rgba(130, 190, 195, 0.14); --shell-b: rgba(14, 34, 42, 0.42);
-  --accent: #8ef0c8; --accent-hi: #b9f7dc; --on-accent: #05241b;
-  --accent-ink: #05241b; --accent-muted: rgba(5, 36, 27, 0.62); --card-hi: #e2faf0; --card-ok: #0e7a52;
-  --accent-glow: rgba(142, 240, 200, .55); --accent-wash: rgba(142, 240, 200, .10); --live-dot: #0e8a5f;
-}
-[data-theme="sand"] {
-  --scene-0: #1d1915; --scene-1: #3b342c; --scene-2: #2a251f;
-  --blob-1: #b9a58a; --blob-2: #8c9aa6; --blob-3: #5c4632; --blob-4: #d8c7ad;
-  --shell-a: rgba(225, 210, 188, 0.20); --shell-b: rgba(60, 52, 44, 0.42);
-  --accent: #f1e8d8; --accent-hi: #fff8ec; --on-accent: #2a241d;
-  --accent-ink: #2a241d; --accent-muted: rgba(42, 36, 29, 0.62); --card-hi: #f4ede1; --card-ok: #4c7a3a;
-  --accent-glow: rgba(241, 232, 216, .5); --accent-wash: rgba(241, 232, 216, .09); --live-dot: #4c9a52;
-}
-[data-theme="sky"] {
+/* ---------- colours (Sky) ---------- */
+:root {
   --scene-0: #12171d; --scene-1: #2a3440; --scene-2: #1c242d;
   --blob-1: #7f95aa; --blob-2: #c4cfd9; --blob-3: #3d4a57; --blob-4: #a7b6c4;
   --shell-a: rgba(200, 214, 228, 0.18); --shell-b: rgba(30, 40, 52, 0.44);
   --accent: #4c9bff; --accent-hi: #74b2ff; --on-accent: #ffffff;
   --accent-ink: #0b2545; --accent-muted: rgba(11, 37, 69, 0.62); --card-hi: #e6f0fd; --card-ok: #1f6f43;
   --accent-glow: rgba(76, 155, 255, .55); --accent-wash: rgba(76, 155, 255, .12); --live-dot: #34c759;
-}
-[data-theme="walnut"] {
-  --scene-0: #140e0a; --scene-1: #33241a; --scene-2: #21170f;
-  --blob-1: #8a5a3b; --blob-2: #c19a72; --blob-3: #3b2a20; --blob-4: #a8754d;
-  --shell-a: rgba(210, 170, 130, 0.16); --shell-b: rgba(40, 26, 18, 0.46);
-  --accent: #f2b880; --accent-hi: #f7cda3; --on-accent: #2a1608;
-  --accent-ink: #2a1608; --accent-muted: rgba(42, 22, 8, 0.62); --card-hi: #fbeadb; --card-ok: #4f7a2e;
-  --accent-glow: rgba(242, 184, 128, .55); --accent-wash: rgba(242, 184, 128, .10); --live-dot: #6fbf73;
-}
-[data-theme="slate"] {
-  --scene-0: #0d0f11; --scene-1: #262b30; --scene-2: #181c20;
-  --blob-1: #5d6670; --blob-2: #9aa4ad; --blob-3: #2f353b; --blob-4: #767f88;
-  --shell-a: rgba(190, 198, 206, 0.16); --shell-b: rgba(26, 30, 34, 0.46);
-  --accent: #e3e9ef; --accent-hi: #ffffff; --on-accent: #12171c;
-  --accent-ink: #12171c; --accent-muted: rgba(18, 23, 28, 0.62); --card-hi: #eef2f6; --card-ok: #2f6b45;
-  --accent-glow: rgba(227, 233, 239, .45); --accent-wash: rgba(227, 233, 239, .08); --live-dot: #4cc38a;
 }
 
 * { box-sizing: border-box; }
@@ -309,29 +277,6 @@ svg.logo { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 10px 24
 /* ---------- start page: spatial ---------- */
 .hero-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; }
 .hero-row .hero { margin: 0; animation: focus-in .9s var(--ease) both; }
-.themes { display: flex; gap: 8px; padding: 6px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--edge); animation: rise .6s .3s var(--ease) both; }
-.swatch { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
-.swatch:hover { transform: scale(1.15); background-color: transparent; }
-.swatch[aria-checked="true"] { border-color: var(--ink); }
-.swatch[data-theme="midnight"] { background: linear-gradient(135deg, #14606a, #8ef0c8); }
-.swatch[data-theme="sand"] { background: linear-gradient(135deg, #8c7b66, #f1e8d8); }
-.swatch[data-theme="sky"] { background: linear-gradient(135deg, #7f95aa, #4c9bff); }
-.swatch[data-theme="walnut"] { background: linear-gradient(135deg, #5c3a24, #f2b880); }
-.swatch[data-theme="slate"] { background: linear-gradient(135deg, #3a4148, #e3e9ef); }
-
-#setup { perspective: 1600px; }
-.setup-grid { transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transform-style: preserve-3d; will-change: transform; }
-.side-col { transform-style: preserve-3d; }
-#setup .panel { position: relative; animation: window-in .9s var(--ease) both; }
-.setup-grid > .panel { --z: 10px; }
-.side-col .panel { --z: 46px; }
-.side-col .panel:nth-child(1) { animation-delay: .14s; }
-.side-col .panel:nth-child(2) { animation-delay: .26s; }
-#setup .panel::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, .09), transparent 60%);
-}
-#setup .panel:hover::before { opacity: 1; }
 .scene { transform: translate3d(var(--px, 0px), var(--py, 0px), 0) scale(1.08); will-change: transform; }
 
 .grabber { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 22px 0 0; animation: rise .6s .45s var(--ease) both; }

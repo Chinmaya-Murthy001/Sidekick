@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidekick</title>
   <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
-  <script>try { document.documentElement.dataset.theme = localStorage.getItem("sidekick.theme") || "midnight"; } catch (e) {}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=11">
 </head>
 <body>
   <div class="scene" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
@@ -36,13 +35,6 @@
     <main id="setup" hidden>
       <div class="hero-row">
         <h2 class="display hero">Start a meeting</h2>
-        <div class="themes" id="themes" role="radiogroup" aria-label="Colour theme">
-          <button type="button" class="swatch" data-theme="midnight" title="Midnight" aria-label="Midnight"></button>
-          <button type="button" class="swatch" data-theme="sand" title="Sand" aria-label="Sand"></button>
-          <button type="button" class="swatch" data-theme="sky" title="Sky" aria-label="Sky"></button>
-          <button type="button" class="swatch" data-theme="walnut" title="Walnut" aria-label="Walnut"></button>
-          <button type="button" class="swatch" data-theme="slate" title="Slate" aria-label="Slate"></button>
-        </div>
       </div>
 
       <div class="setup-grid">
@@ -175,6 +167,6 @@
 
   <div class="gaze" id="gaze" aria-hidden="true"></div>
 
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/app.js?v=11"></script>
 </body>
 </html>
