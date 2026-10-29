@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from . import google_auth, recall  # noqa: E402
+from . import google_auth, recall, transcribe  # noqa: E402
 from .agents import agent_label, make_agent  # noqa: E402
 from .demo import DEMO_SCRIPT, build_demo_meeting  # noqa: E402
 from .meeting import Meeting  # noqa: E402
@@ -103,6 +103,11 @@ class UtteranceIn(BaseModel):
     text: str
 
 
+class AudioIn(BaseModel):
+    audio: str = Field(max_length=12_000_000)  # base64, a few seconds of 16 kHz mono WAV
+    format: str = "wav"
+
+
 class ApprovalIn(BaseModel):
     approve: bool
 
@@ -161,6 +166,7 @@ async def status() -> dict:
         "agent_label": agent_label(agent),
         "google": {"configured": google_auth.configured(), "connected": bool(loaded), "email": loaded[1] if loaded else None},
         "recall": {"enabled": recall.enabled(), "ready": recall.ready()},
+        "call_audio": transcribe.enabled(),
     }
 
 
@@ -203,6 +209,31 @@ async def demo() -> dict:
 async def utterance(body: UtteranceIn) -> dict:
     acted = await asyncio.to_thread(current().hear, body.speaker, body.text)
     return {"acted": acted}
+
+
+@app.post("/api/audio")
+async def audio(body: AudioIn) -> dict:
+    """A few seconds of the shared call audio: transcribe, then hear each turn."""
+    s = current()
+    m = s.meeting
+    if m.ended:
+        raise HTTPException(409, "This meeting has ended.")
+    if m.paused:
+        return {"heard": 0, "paused": True}  # nothing said while paused is transcribed
+    if not transcribe.enabled():
+        raise HTTPException(400, "Hearing the whole call needs OPENROUTER_API_KEY in .env.")
+    if body.format not in {"wav", "mp3"}:
+        raise HTTPException(422, "Audio must be wav or mp3.")
+    people = [p.name for p in m.participants]
+    try:
+        turns = await asyncio.to_thread(transcribe.transcribe, body.audio, body.format, people, m.recent_transcript(8))
+    except transcribe.TranscribeError as e:
+        m.log("error", "Couldn't transcribe the call audio", str(e), status="failed")
+        raise HTTPException(502, str(e))
+    acted = []
+    for t in turns:
+        acted += await asyncio.to_thread(s.hear, t["speaker"], t["text"])
+    return {"heard": len(turns), "acted": acted}
 
 
 @app.post("/api/approvals/{approval_id}")

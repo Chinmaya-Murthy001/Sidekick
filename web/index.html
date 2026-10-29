@@ -7,7 +7,7 @@
   <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=12">
+  <link rel="stylesheet" href="/static/style.css?v=13">
 </head>
 <body>
   <div class="scene" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div>
@@ -121,6 +121,9 @@
           <form id="say" class="say">
             <select id="speaker" aria-label="Speaker"></select>
             <input id="text" autocomplete="off" placeholder="Type or use the mic">
+            <button type="button" id="btn-call" class="circle" title="Hear the whole call (share the meeting tab)" aria-label="Hear the whole call">
+              <svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>
+            </button>
             <button type="button" id="btn-mic" class="circle" title="Microphone" aria-label="Microphone">
               <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
             </button>
@@ -168,6 +171,6 @@
 
   <div class="gaze" id="gaze" aria-hidden="true"></div>
 
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

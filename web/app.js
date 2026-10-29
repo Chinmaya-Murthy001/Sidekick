@@ -450,10 +450,142 @@ $("feed").addEventListener("click", async (e) => {
   };
   btn.addEventListener("click", () => {
     if (wanted) { wanted = false; if (rec) rec.stop(); show(""); btn.classList.remove("listening"); return; }
+    if (window.__sidekickStopCall) window.__sidekickStopCall(); // one way of listening at a time
     wanted = true;
     start();
   });
   $("speaker").addEventListener("change", () => { if (wanted) show(`Listening as ${$("speaker").value}…`, "on"); });
+})();
+
+// --- hear the whole call: shared tab audio + your mic → transcription -----
+// Chrome/Edge share a meeting tab's sound; we mix it with the microphone,
+// cut it at natural pauses, and send each piece as 16 kHz mono WAV.
+(function setupCallAudio() {
+  const btn = $("btn-call");
+  const line = $("mic-status");
+  const show = (text, kind = "") => { line.textContent = text; line.className = "mic-status " + kind; line.hidden = !text; };
+  const RATE = 16000, BLOCK = 1600;              // 100 ms blocks
+  // 0.8 s pause ends a piece; max 15 s; 0.3 s of sound keeps short replies ("Yes", "Hi Pranu").
+  const SILENCE_END = 8, MIN_SPEECH = 3, MAX_BLOCKS = 150, PREROLL = 3;
+  let run = null;
+
+  const worklet = `class Tap extends AudioWorkletProcessor {
+    constructor() { super(); this.buf = new Float32Array(${BLOCK}); this.n = 0; }
+    process(inputs) {
+      const ch = inputs[0] && inputs[0][0];
+      if (ch) for (let i = 0; i < ch.length; i++) { this.buf[this.n++] = ch[i]; if (this.n === ${BLOCK}) { this.port.postMessage(this.buf.slice()); this.n = 0; } }
+      return true;
+    }
+  } registerProcessor("tap", Tap);`;
+
+  function wav(blocks) {
+    const n = blocks.length * BLOCK, out = new DataView(new ArrayBuffer(44 + n * 2));
+    const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+    str(0, "RIFF"); out.setUint32(4, 36 + n * 2, true); str(8, "WAVEfmt "); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, RATE, true); out.setUint32(28, RATE * 2, true);
+    out.setUint16(32, 2, true); out.setUint16(34, 16, true); str(36, "data"); out.setUint32(40, n * 2, true);
+    let o = 44;
+    for (const b of blocks) for (const v of b) { out.setInt16(o, Math.max(-1, Math.min(1, v)) * 0x7fff, true); o += 2; }
+    let bin = "";
+    const bytes = new Uint8Array(out.buffer);
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
+  async function send(blocks) {
+    run.pending++;
+    show(`Hearing the call… transcribing ${(blocks.length / 10).toFixed(0)} s`, "on");
+    try {
+      const r = await api("/api/audio", { audio: wav(blocks), format: "wav" });
+      if (run) show(r.paused ? "Paused. Say “Sidekick, resume”." : "Hearing the whole call…", "on");
+    } catch (e) {
+      if (run) show("Transcription failed: " + e.message, "bad");
+    } finally {
+      if (run) run.pending--;
+    }
+  }
+
+  function onBlock(block) {
+    let sum = 0;
+    for (const v of block) sum += v * v;
+    const rms = Math.sqrt(sum / block.length);
+    // Adaptive threshold: a little above the background noise level.
+    run.noise = run.noise * 0.98 + Math.min(rms, run.noise * 3 || rms) * 0.02;
+    const speaking = rms > Math.max(0.008, run.noise * 2.5);
+    run.recent.push(block);
+    if (run.recent.length > PREROLL) run.recent.shift();
+    if (!run.piece) {
+      if (speaking) { run.piece = [...run.recent]; run.voiced = 1; run.quiet = 0; }
+      return;
+    }
+    run.piece.push(block);
+    if (speaking) { run.voiced++; run.quiet = 0; } else run.quiet++;
+    const done = (run.quiet >= SILENCE_END && run.voiced >= MIN_SPEECH) || run.piece.length >= MAX_BLOCKS;
+    if (run.quiet >= SILENCE_END && run.voiced < MIN_SPEECH) run.piece = null; // a click or cough, not speech
+    else if (done) { const p = run.piece; run.piece = null; send(p); }
+  }
+
+  async function start() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      show("Hearing the whole call needs Chrome or Edge on a computer.", "bad");
+      return;
+    }
+    if (!(status && status.call_audio)) {
+      show("Hearing the whole call needs OPENROUTER_API_KEY in .env (see docs/SETUP.md).", "bad");
+      return;
+    }
+    // The page mic would hear you twice; this mode already includes your mic.
+    if ($("btn-mic").classList.contains("listening")) $("btn-mic").click();
+    show("Pick the meeting tab and turn on “Share tab audio”…", "on");
+    let tab;
+    try {
+      tab = await navigator.mediaDevices.getDisplayMedia({
+        video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        preferCurrentTab: false, selfBrowserSurface: "exclude", systemAudio: "include",
+      });
+    } catch {
+      show("Sharing was cancelled.", "");
+      return;
+    }
+    if (!tab.getAudioTracks().length) {
+      tab.getTracks().forEach((t) => t.stop());
+      show("No sound was shared. Pick the meeting tab and tick “Share tab audio”.", "bad");
+      return;
+    }
+    tab.getVideoTracks().forEach((t) => t.stop()); // we only need the sound
+    let mic = null;
+    try { mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch { /* the call's sound alone still works; you just won't be heard */ }
+
+    const ctx = new AudioContext({ sampleRate: RATE });
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet], { type: "text/javascript" })));
+    const tap = new AudioWorkletNode(ctx, "tap");
+    ctx.createMediaStreamSource(new MediaStream(tab.getAudioTracks())).connect(tap);
+    if (mic) ctx.createMediaStreamSource(mic).connect(tap);
+    const sink = ctx.createGain();
+    sink.gain.value = 0;               // keep the graph running without playing anything back
+    tap.connect(sink).connect(ctx.destination);
+    run = { ctx, tab, mic, piece: null, recent: [], voiced: 0, quiet: 0, noise: 0, pending: 0 };
+    tap.port.onmessage = (e) => run && onBlock(e.data);
+    tab.getAudioTracks()[0].addEventListener("ended", () => stop("Stopped: the tab is no longer shared."));
+    btn.classList.add("listening");
+    show(mic ? "Hearing the whole call (tab + your mic)…" : "Hearing the call's tab (your mic is off)…", "on");
+  }
+
+  function stop(message = "") {
+    if (!run) return;
+    const r = run;
+    if (r.piece && r.voiced >= MIN_SPEECH) send(r.piece); // don't lose the last sentence
+    run = null;
+    r.tab.getTracks().forEach((t) => t.stop());
+    if (r.mic) r.mic.getTracks().forEach((t) => t.stop());
+    r.ctx.close();
+    btn.classList.remove("listening");
+    show(message);
+  }
+
+  btn.addEventListener("click", () => (run ? stop() : start()));
+  window.__sidekickStopCall = stop;
 })();
 
 // --- spatial motion on the start page (tilt, parallax, sheen, gaze) ------
@@ -527,6 +659,7 @@ function applyMessage(msg) {
     Object.assign(state, msg.state);
     if (msg.state.summary && msg.state.ended) showSummary(msg.state.summary, state);
   }
+  if ((!state || state.ended) && window.__sidekickStopCall) window.__sidekickStopCall();
   renderShell();
   renderLive();
 }

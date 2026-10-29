@@ -112,7 +112,18 @@ Good to know:
 
 Skip this if you're fine opening the call yourself and using the page's 🎤.
 
-**Using Sidekick without Recall.ai**
+**Hear the whole call without Recall.ai (recommended)**
+1. Open http://localhost:8000 in **Chrome or Edge**, and join your Meet, Zoom or Teams call in **another tab of the same browser**.
+2. In Sidekick, start the meeting and click the **🎧 headphones button** next to the mic.
+3. In the browser's share window, choose **Chrome Tab** (or **Edge Tab**), pick the meeting tab, turn on **"Share tab audio"**, then **Share**. Allow the microphone if asked.
+4. The line under the input shows "Hearing the whole call…". Everyone in the call (from the tab) and you (from your mic) are cut at natural pauses, transcribed with speaker names by an audio model on your OpenRouter key, and acted on.
+
+Notes:
+- **Needs `OPENROUTER_API_KEY`.** The transcription model is `google/gemini-3.5-flash-lite` (about $0.04 per hour of audio); change it with `OPENROUTER_AUDIO_MODEL`.
+- **Speaker names are guessed from the conversation** (people addressing each other by name). When it can't tell, it uses "Speaker 1", "Speaker 2". Tasks can only be assigned to names it recognises.
+- **Click 🎧 again, or stop sharing, to stop.** Saying "Sidekick, stop recording" also stops anything from being transcribed until "Sidekick, resume".
+
+**Using only the page microphone**
 - Open http://localhost:8000 in **Chrome or Edge**. Other browsers, and app-embedded browsers such as the Claude desktop app's preview, block the microphone or have no live transcription.
 - Start the meeting, pick who is speaking, click 🎤 and allow the microphone. The line under the input shows "Listening as …", then your words as you speak. Each finished sentence appears in the transcript and goes to the AI.
 - The page only hears **your microphone**. Other people in the call are only picked up if their voices come out of your speakers, not headphones, and even then less reliably. Sentences are credited to whoever is selected in "Speaker". To capture everyone with their real names, use Recall.ai.
